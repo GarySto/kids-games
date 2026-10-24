@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap">
-<link rel="stylesheet" href="../shared.css?v=20261024b">
+<link rel="stylesheet" href="../shared.css?v=20261024c">
 <style>
 html,body{background:#160f3a}
 .overlay{background:radial-gradient(ellipse at center,rgba(22,15,58,.75),rgba(22,15,58,.2) 75%)}
@@ -42,14 +42,14 @@ kbd{background:#3a2c8a;color:#fff;border-color:#7f6bff}
   <div class="btns"><button class="go" id="start">Start</button></div>
   <div class="keys">
     <div><b>Maths</b>Type the answer with the number keys, then <kbd>Enter</kbd>. Three right in a row wins a bonus ball.</div>
-    <div><b>Shooting</b>Aim with <kbd>←</kbd><kbd>→</kbd> or the mouse, fire with <kbd>Space</kbd> or a click. Land in the bucket for a free ball.</div>
+    <div><b>Shooting</b>Aim with <kbd>←</kbd><kbd>→</kbd>, the mouse, or by dragging on a tablet. Fire with <kbd>Space</kbd>, a click or the <b style="display:inline;color:#ff9f1c">FIRE</b> button. Land in the bucket for a free ball.</div>
   </div>
   <p class="made" id="best"></p>
 </div>
 <div class="chrome left"><a href="../index.html">← Kids Games</a></div>
 <div class="chrome right"><button id="mute" type="button">Sound on</button><button id="fs" type="button">Full screen</button></div>
 
-<script src="../shared.js?v=20261024b"></script>
+<script src="../shared.js?v=20261024c"></script>
 <script>KG.applyNames();</script>
 <script>
 "use strict";
@@ -216,7 +216,17 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => keys.delete(e.code));
 const PAD = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["⌫", "0", "OK"]], PADX = 40, PADY = 362, PADW = 76, PADH = 58;
 const cvEl = document.getElementById("game");
-cvEl.addEventListener("pointermove", e => { const w = KG.toWorld(e); if (w.x > BX0 && w.y > LY + 10) S.aim = clamp(Math.atan2(w.y - LY, w.x - LX), .12, Math.PI - .12); });
+// on-screen controls for tablets: hold the arrows to swing the cannon, press Fire to shoot
+const CTRL = { left: { x: BX0 + 16, y: H - 140, w: 80, h: 60 }, right: { x: BX0 + 106, y: H - 140, w: 80, h: 60 }, fire: { x: BX1 - 176, y: H - 140, w: 160, h: 60 } };
+const inBox = (w, b) => w.x > b.x && w.x < b.x + b.w && w.y > b.y && w.y < b.y + b.h;
+const aimAt = w => { if (w.y > LY + 10) S.aim = clamp(Math.atan2(w.y - LY, w.x - LX), .12, Math.PI - .12); };
+let dragging = false;
+cvEl.addEventListener("pointermove", e => {
+  const w = KG.toWorld(e); if (w.x <= BX0 || S.hold) return;
+  if (e.pointerType === "mouse" || dragging) aimAt(w);   // a mouse aims as it moves; a finger aims while dragging
+});
+const stopHold = () => { S.hold = null; dragging = false; };
+addEventListener("pointerup", stopHold); addEventListener("pointercancel", stopHold);
 cvEl.addEventListener("pointerdown", e => {
   const w = KG.toWorld(e);
   if (S.screen === "levelup" && S.t - S.endT > 1.5) return startLevel(S.level + 1);
@@ -226,7 +236,10 @@ cvEl.addEventListener("pointerdown", e => {
     const x = PADX + c * (PADW + 10), y = PADY + r * (PADH + 10);
     if (w.x > x && w.x < x + PADW && w.y > y && w.y < y + PADH) { const k = PAD[r][c]; if (k === "OK") submit(); else if (k === "⌫") S.input = S.input.slice(0, -1); else if (S.input.length < 3) S.input += k; return; }
   }
-  if (w.x > BX0) { if (w.y > LY + 10) S.aim = clamp(Math.atan2(w.y - LY, w.x - LX), .12, Math.PI - .12); fire(); }
+  if (inBox(w, CTRL.left)) { S.hold = "left"; return; }
+  if (inBox(w, CTRL.right)) { S.hold = "right"; return; }
+  if (inBox(w, CTRL.fire)) { fire(); return; }
+  if (w.x > BX0) { aimAt(w); if (e.pointerType === "mouse") fire(); else dragging = true; }   // a finger only aims; Fire shoots
 });
 function begin() { KG.unlockAudio(); document.getElementById("menu").hidden = true; S.score = 0; S.balls = 3; S.streak = 0; KG.track("game_start", { game_name: "pegs" }); startLevel(0); }
 document.getElementById("start").onclick = e => { e.currentTarget.blur(); begin(); };
@@ -252,8 +265,8 @@ function update(dt) {
   S.pops.forEach(p => { p.t += dt; p.y -= 30 * dt; }); S.pops = S.pops.filter(p => p.t < 1.8);
   if (S.msg) { S.msg.t += dt; if (S.msg.t > S.msg.dur) S.msg = null; }
   if (S.screen !== "play") return;
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) S.aim = clamp(S.aim + 1.5 * dt, .12, Math.PI - .12);
-  if (keys.has("ArrowRight") || keys.has("KeyD")) S.aim = clamp(S.aim - 1.5 * dt, .12, Math.PI - .12);
+  if (keys.has("ArrowLeft") || keys.has("KeyA") || S.hold === "left") S.aim = clamp(S.aim + 1.2 * dt, .12, Math.PI - .12);
+  if (keys.has("ArrowRight") || keys.has("KeyD") || S.hold === "right") S.aim = clamp(S.aim - 1.2 * dt, .12, Math.PI - .12);
   const bk = S.bucket; bk.x += bk.dir * 190 * dt; if (bk.x > BX1 - 70) bk.dir = -1; if (bk.x < BX0 + 70) bk.dir = 1;
   const b = S.ball;
   if (b) {
@@ -282,6 +295,14 @@ function drawPegs() {
     circ(p.x, p.y, PEG_R, p.lit ? "#ffffff" : col, 2.5); circ(p.x - 4, p.y - 4, 3.5, "rgba(255,255,255,.7)", 0);
     if (p.type === "green" && !p.lit) txt("+", p.x, p.y + 6, 16, "#0b3d1f", "center");
   });
+}
+function drawControls() {
+  const can = !S.ball && S.balls > 0;
+  [["left", -1], ["right", 1]].forEach(([k, d]) => { const b = CTRL[k], on = S.hold === k;
+    rr(b.x, b.y + 4, b.w, b.h, 16, "rgba(12,8,38,.8)", 0); rr(b.x, b.y + (on ? 3 : 0), b.w, b.h, 16, on ? "#7f6bff" : "#3a2c8a", 2.5);
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2 + (on ? 3 : 0); poly([[cx + d * 16, cy], [cx - d * 10, cy - 16], [cx - d * 10, cy + 16]], "#ffffff", 2); });
+  const f = CTRL.fire; rr(f.x, f.y + 4, f.w, f.h, 18, "rgba(12,8,38,.8)", 0); rr(f.x, f.y, f.w, f.h, 18, can ? "#ff9f1c" : "#5b4a8a", 2.5);
+  txt("FIRE", f.x + f.w / 2, f.y + 45, 30, can ? "#2d2340" : "#a99fd0", "center", 700);
 }
 function drawLauncher() {
   // aiming dots (where the ball goes before it hits anything)
@@ -356,7 +377,7 @@ function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt);
   KG.begin(null, "#160f3a", 0);
   drawBackground();
-  if (S.screen !== "title") { drawPegs(); drawBucket(); drawLauncher(); drawBall(); drawBell(); drawTop(); drawPanel(); drawFX(); }
+  if (S.screen !== "title") { drawPegs(); drawBucket(); drawLauncher(); drawBall(); drawBell(); drawTop(); drawPanel(); drawFX(); if (S.screen === "play") drawControls(); }
   if (S.screen === "levelup") drawOverlay(`Level ${S.level + 1} complete!`, `Score ${S.score}`, "Space, Enter or tap for the next level");
   if (S.screen === "end") drawOverlay("Times Table Champion!", `Final score ${S.score}${S.score >= best ? "  (new best!)" : ""}`, "Space or Enter to play again");
   KG.end(); requestAnimationFrame(frame);

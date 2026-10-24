@@ -2,7 +2,7 @@
    Online, everything comes fresh from the website (so a new version never mixes with an old one, which Safari
    on iPad was doing). Offline, the saved copy is used. Redirected responses are never saved, because Safari
    refuses to show them from a saved copy. Fonts never change, so they are served from the saved copy first. */
-const CACHE = "kids-games-v6";
+const CACHE = "kids-games-v7";
 const CORE = ["./", "./shared.js", "./shared.css", "./seek/", "./pegs/", "./paint/", "./spell/", "./spell/words.js",
   "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 

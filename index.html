@@ -193,7 +193,7 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
   <footer><a href="https://garystow.co.uk/work/#play">Read how I built them</a> · <a href="https://garystow.co.uk/">garystow.co.uk</a> · <a href="https://garystow.co.uk/privacy/">Privacy</a></footer>
 </div>
 
-<script src="shared.js?v=20261024b"></script>
+<script src="shared.js?v=20261024c"></script>
 <script>KG.applyNames();</script>
 <script>
 "use strict";
@@ -296,7 +296,7 @@ function buildFamily() {
     card.appendChild(optRow(c.kid ? "Boy or girl" : "Man or woman", Object.keys(bodies).map(k => [k, bodies[k]]), v.body, x => {
       v.body = x;
       // a sensible starting point when switching; everything can still be changed below
-      if (x === "boy" && ["curly", "straight", "braids"].includes(v.style)) v.style = "short";
+      if (x === "boy" && ["curly", "straight", "braids", "short"].includes(v.style)) v.style = "spiky";
       if (x === "woman") v.beard = "none";
       setTimeout(buildFamily, 0);
     }));

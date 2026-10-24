@@ -154,7 +154,8 @@ const KG = (() => {
   const HAIR_LABELS = { blonde: "Blonde", honey: "Honey", ginger: "Ginger", auburn: "Auburn", lightbrown: "Light brown", ashbrown: "Ash brown", brown: "Brown", darkbrown: "Dark brown", black: "Black", grey: "Grey", white: "White" };
   const EYES = { blue: "#3b82f6", bluegrey: "#6f9cc0", green: "#2fa36b", hazel: "#9a7a3a", brown: "#6b4426", darkbrown: "#3a2418", grey: "#7d8a99" };
   const EYE_LABELS = { blue: "Blue", bluegrey: "Blue-grey", green: "Green", hazel: "Hazel", brown: "Brown", darkbrown: "Dark brown", grey: "Grey" };
-  const KID_STYLES = { curly: "Long curls", straight: "Long straight", short: "Short", puffs: "Puffs", braids: "Braids", afro: "Afro" };
+  const KID_STYLES = { curly: "Long curls", straight: "Long straight", short: "Short bob", puffs: "Puffs", braids: "Braids", afro: "Afro", spiky: "Spiky", parting: "Side parting", buzz: "Buzz cut" };
+  const EARS_SHOW = ["spiky", "parting", "buzz"];
   const ADULT_STYLES = { short: "Short", long: "Long straight", curly: "Curly", bun: "Bun", afro: "Afro", bald: "Bald" };
   const BEARDS = { none: "None", stubble: "Stubble", beard: "Beard" };
   const KID_BODIES = { girl: "Girl", boy: "Boy" }, ADULT_BODIES = { woman: "Woman", man: "Man" };
@@ -214,8 +215,13 @@ const KG = (() => {
     else if (st === "afro") { cluster([[0, -92, 34], [-22, -76, 20], [22, -76, 20]], hc.base, 2.5); for (let i = 0; i < 14; i++) { const a = i * 2.39, r = 8 + (i * 5) % 24; circ(Math.cos(a) * r, -96 + Math.sin(a) * r * .8, 2, i % 2 ? hc.light : hc.dark, 0); } }
     else if (st === "braids") { cluster([[0, -94, 25]], hc.base, 2.5); [-1, 1].forEach(sd => { for (let i = 0; i < 6; i++) ell(sd * 24, -82 + i * 9 + hl * .3, 6, 5.5, i % 2 ? hc.base : hc.dark, 2); circ(sd * 24, -82 + 6 * 9 + hl * .3, 3.5, "#ff7ab6", 1.5); }); }
   }
+  // a neat cap of short hair over the top of the head, down to the forehead
+  function hairCap(hc, low = -91) { ctx.beginPath(); ctx.moveTo(-24, -80); ctx.arc(0, -82, 24.5, Math.PI * 1.02, Math.PI * 1.98); ctx.lineTo(24, -80); ctx.quadraticCurveTo(14, low - 2, 0, low); ctx.quadraticCurveTo(-14, low - 1, -24, -80); ctx.closePath(); ctx.fillStyle = hc.base; ctx.fill(); stroke(2.5); }
   function kidHairFront(lk, hc) {
     const st = lk.style;
+    if (st === "spiky") { [[-19, -95, -5], [-10, -103, -2], [0, -107, 0], [10, -104, 2], [19, -96, 5]].forEach(([x, y, lean]) => poly([[x - 8, y + 8], [x + 8, y + 8], [x + lean, y - 13]], hc.base, 2.5)); hairCap(hc, -93); line(-8, -99, -2, -94, hc.light, 2); line(6, -100, 10, -95, hc.light, 2); return; }
+    if (st === "parting") { hairCap(hc, -95); ctx.beginPath(); ctx.moveTo(-8, -105); ctx.quadraticCurveTo(16, -108, 25, -86); ctx.quadraticCurveTo(12, -98, -9, -94); ctx.closePath(); ctx.fillStyle = hc.base; ctx.fill(); stroke(2.5); line(-8, -105, -10, -95, hc.dark, 2.5); line(2, -101, 14, -95, hc.light, 2); return; }
+    if (st === "buzz") { ctx.save(); ctx.beginPath(); ctx.moveTo(-23.5, -82); ctx.arc(0, -82, 23.5, Math.PI, 0); ctx.quadraticCurveTo(12, -95, 0, -95); ctx.quadraticCurveTo(-12, -95, -23.5, -82); ctx.closePath(); ctx.fillStyle = hc.base; ctx.fill(); stroke(2); ctx.clip(); for (let i = 0; i < 26; i++) { const a = Math.PI + (i / 26) * Math.PI, r = 12 + (i * 7) % 10; circ(Math.cos(a) * r, -84 + Math.sin(a) * r, 1.3, hc.dark, 0); } ctx.restore(); return; }
     if (st === "curly") { cluster([[-14, -96, 9], [-4, -100, 10], [7, -99, 10], [16, -93, 8]], hc.base, 2); [[-14, -96], [-4, -100], [7, -99]].forEach(([cx, cy]) => { ctx.beginPath(); ctx.arc(cx, cy + 1, 4, .3, 4); ctx.strokeStyle = hc.light; ctx.lineWidth = 2; ctx.stroke(); }); }
     else if (st === "afro" || st === "puffs") { ctx.beginPath(); ctx.arc(0, -84, 23, Math.PI * 1.08, Math.PI * 1.92); ctx.quadraticCurveTo(0, -96, -21, -90); ctx.closePath(); ctx.fillStyle = hc.base; ctx.fill(); stroke(2); }
     else { ctx.beginPath(); ctx.moveTo(-23, -84); ctx.quadraticCurveTo(-22, -106, 2, -105); ctx.quadraticCurveTo(24, -104, 23, -82); ctx.quadraticCurveTo(10, -96, -6, -92); ctx.quadraticCurveTo(-16, -90, -23, -84); ctx.closePath(); ctx.fillStyle = hc.base; ctx.fill(); stroke(2); line(-6, -100, 6, -94, hc.light, 2); }
@@ -257,12 +263,16 @@ const KG = (() => {
     }
     if (o.puff) { circ(-14, -55, 6, o.top, 2.5); circ(14, -55, 6, o.top, 2.5); }
     // head and face
-    circ(0, -80, 23, SKIN);
+    const boy = lk.body === "boy";
+    if (EARS_SHOW.includes(lk.style)) [-1, 1].forEach(sd => { circ(sd * 23, -78, 6.5, SKIN, 2.5); ctx.beginPath(); ctx.arc(sd * 23, -78, 3, sd > 0 ? -1.2 : 1.9, sd > 0 ? 1.2 : 4.4); ctx.strokeStyle = shade(SKIN, -.25); ctx.lineWidth = 1.5; ctx.stroke(); });
+    if (boy) rr(-22.5, -104, 45, 48, [22, 22, 17, 17], SKIN); else circ(0, -80, 23, SKIN);   // a slightly squarer face for boys
     kidHairFront(lk, hc);
     const ex = f * 2, eye = EYES[lk.eyes] || EYES.blue, dark = shade(SKIN, -.3) === SKIN ? INK : INK;
-    [-8, 8].forEach(dx => { ell(dx + ex, -79, 5.5, 6.5, "#fff", 2); circ(dx + ex + f, -78.5, 4.2, eye, 0); circ(dx + ex + f, -78.5, 2, "#1d2a55", 0); circ(dx + ex + f - 1.4, -80.5, 1.3, "#fff", 0); if (lk.body !== "boy") line(dx + ex - 4, -85, dx + ex - 6, -87.5, dark, 1.5); });
+    const es = boy ? .82 : 1;   // boys: slightly smaller eyes, no eyelashes
+    [-8, 8].forEach(dx => { ell(dx + ex, -79, 5.5 * es, 6.5 * es, "#fff", 2); circ(dx + ex + f, -78.5, 4.2 * es, eye, 0); circ(dx + ex + f, -78.5, 2 * es, "#1d2a55", 0); circ(dx + ex + f - 1.2, -80.2, 1.2, "#fff", 0); if (!boy) line(dx + ex - 4, -85, dx + ex - 6, -87.5, dark, 1.5); });
+    if (boy) { line(-12 + ex, -87, -5 + ex, -88, shade(hc.base, -.3), 2.5); line(5 + ex, -88, 12 + ex, -87, shade(hc.base, -.3), 2.5); }
     if (lk.glasses) glasses([-8 + ex, 8 + ex], -79, 8);
-    ell(-13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0); ell(13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0);
+    if (!boy) { ell(-13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0); ell(13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0); }
     ctx.beginPath(); ctx.arc(ex, -71, 6, .2, Math.PI - .2); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
     // headwear
     if (o.hat === "ears") { line(-17, -100, 17, -100, "#9a5b2c", 4); circ(-17, -106, 8, "#a8662f", 2.5); circ(17, -106, 8, "#a8662f", 2.5); circ(-17, -106, 3.5, "#ffb3cf", 0); circ(17, -106, 3.5, "#ffb3cf", 0); }
