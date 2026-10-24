@@ -1,0 +1,25 @@
+:root{--ink:#2d2340;--bell:#7c3aed;--lala:#db2777;--sun:#ffcf33;--cream:#fffaf0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:"Fredoka","Trebuchet MS",system-ui,sans-serif;color:var(--ink);touch-action:none;-webkit-user-select:none;user-select:none}
+canvas{display:block;position:fixed;inset:0}
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px;text-align:center;background:radial-gradient(ellipse at center,rgba(255,250,240,.6),rgba(255,250,240,0) 70%)}
+.overlay[hidden]{display:none}
+.title{font-size:clamp(2.4rem,7vw,5rem);font-weight:700;line-height:1;color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink)}
+.title span{display:block;color:var(--sun);font-size:.55em;margin-top:.15em}
+.sub{max-width:36rem;font-size:clamp(1rem,2.3vw,1.25rem);font-weight:600;background:var(--cream);border:3px solid var(--ink);border-radius:18px;padding:10px 18px;box-shadow:0 5px 0 var(--ink)}
+.btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.btns button,.btns a{font:inherit;font-weight:700;font-size:clamp(1.05rem,2.5vw,1.45rem);padding:13px 24px;border-radius:999px;border:3px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;box-shadow:0 6px 0 var(--ink);transition:transform .08s;text-decoration:none}
+.btns button:hover,.btns button:focus-visible,.btns a:hover{transform:translateY(-3px);outline:none}
+.btns button:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.btns .go{background:var(--sun)}.btns .b{background:#ddd0ff}.btns .l{background:#ffd3e8}
+.keys{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:clamp(.9rem,1.8vw,1.05rem)}
+.keys div{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:8px 14px;max-width:24rem}
+.keys b{display:block;font-size:1.15em}
+.keys .kb b{color:var(--bell)}.keys .kl b{color:var(--lala)}
+kbd{font:inherit;font-weight:700;background:#f1ecff;border:2px solid var(--ink);border-radius:6px;padding:0 6px;margin:0 1px}
+.chrome{position:fixed;bottom:10px;display:flex;gap:8px;z-index:5}
+.chrome.left{left:10px}.chrome.right{right:10px}
+.chrome a,.chrome button{font:inherit;font-weight:600;font-size:.9rem;padding:6px 12px;border-radius:999px;border:2px solid var(--ink);background:rgba(255,255,255,.88);color:var(--ink);text-decoration:none;cursor:pointer}
+.made{font-size:.9rem;font-weight:600;opacity:.85}
+.rotate{display:none;position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:6;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:6px 14px;font-weight:600;font-size:.9rem;white-space:nowrap}
+@media (orientation:portrait) and (max-width:700px){.rotate{display:block}}

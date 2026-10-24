@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="../icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seek and Find: a two-player game I made for my kids — Gary Stow</title>
+<meta name="description" content="A co-op find-it game I built with AI for my two daughters. One reads clues and solves times-table puzzles, the other finds big spoken pictures and counts. Then they find Daddy.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Seek and Find: a co-op game I made for my kids">
+<meta property="og:description" content="Two players, one keyboard. Read the clues, find everything, then find Daddy.">
+<meta property="og:image" content="https://garystow.co.uk/assets/play-preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#7c3aed">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../shared.css">
+<style>html,body{background:#8fdc6a}</style>
+</head>
+<body>
+<canvas id="game" aria-label="Seek and Find game"></canvas>
+
+<div id="menu" class="overlay">
+  <h1 class="title">Seek &amp; Find <span><span data-name="bell">Bell</span> and <span data-name="lala" data-suffix="'s adventure">La La's adventure</span></span></h1>
+  <p class="sub">Read the clues, find everything on your lists, then find <span data-name="adult1">Daddy</span> hiding somewhere in the picture. Three places to explore!</p>
+  <div class="btns">
+    <button class="go" data-mode="together">Play together</button>
+    <button class="b" data-mode="bell">Just <span data-name="bell">Bell</span></button>
+    <button class="l" data-mode="lala">Just <span data-name="lala">La La</span></button>
+  </div>
+  <div class="keys">
+    <div class="kb"><b data-name="bell">Bell</b><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk, <kbd>Space</kbd> to pick up, <kbd>H</kbd> for a hint</div>
+    <div class="kl"><b data-name="lala">La La</b>Arrow keys to walk, then just walk into your pictures. The mouse or a tablet works too.</div>
+  </div>
+</div>
+
+<div class="rotate">Turn your tablet sideways for a bigger picture</div>
+<div class="chrome left"><a href="../index.html">← Kids Games</a></div>
+<div class="chrome right"><button id="mute" type="button">Sound on</button><button id="fs" type="button">Full screen</button></div>
+
+<script src="../shared.js"></script>
+<script>KG.applyNames();</script>
+<script>
+"use strict";
+/* Seek and Find: co-op find-it game for two on one keyboard.
+   Bell (Year 4): clues to read, times tables and division to work out, colours to match.
+   La La (age 3): big spoken pictures, counting to three, auto pick-up, no fail states.
+   Three places per adventure, then it ends with a trophy. Nobody can lose. */
+const { W, H, INK, rand, randInt, pick, shuffle, clamp, shade, circ, ell, rr, poly, line, cluster, txt, wrap, star4, bubble, sfx, speak } = KG;
+const HORIZON = 250, ROUNDS = 3;
+const FAM = KG.family(), NB = FAM.bell.name, NL = FAM.lala.name, ND = FAM.adult1.name;
+const ctx = KG.stage(document.getElementById("game"));
+KG.chrome();
+
+// ---------- data ----------
+const THEMES = [
+  { name: "Sunny Meadow", sky: ["#6ec3f5", "#d4f1ff"], hills: ["#a6e08a", "#7fcd63"], ground: "#8fdc6a", patch: "#a3e57f", tree: "tree", leaf: ["#4cbb4a", "#5ccd52", "#3faa4a"], bush: "#43a747", extras: ["house", "house", "house", "rock", "mushroom"], decals: ["pond", "flowers", "flowers"], tuft: "#6cc24f" },
+  { name: "Seaside", sky: ["#4fbdf2", "#dcf5ff"], sea: true, ground: "#f6dc98", patch: "#fbe7b4", tree: "palm", leaf: ["#3fae4f"], bush: "#5bb85a", extras: ["umbrella", "sandcastle", "hut", "rock", "umbrella", "sandcastle"], decals: ["pool", "shells"], tuft: "#e2c27a" },
+  { name: "Snowy Village", sky: ["#8fbfe6", "#eaf5fc"], hills: ["#ffffff", "#e4eef7"], ground: "#f3f8fc", patch: "#ffffff", tree: "pine", leaf: ["#2f8f5b", "#3a9e66"], bush: "#3c8f58", extras: ["snowman", "house", "snowman", "rock", "house"], decals: ["ice", "ice"], tuft: "#d8e6f1", snowy: true }
+];
+const HOUSE_COLS = ["#ffe3a3", "#ffc9d6", "#c9e7ff", "#d9f7c9", "#f2d9ff"], ROOF_COLS = ["#e2513f", "#d9822b", "#5b7fd6", "#9a5ab8"];
+const COLORS = { red: "#ef4444", blue: "#3b82f6", yellow: "#facc15", green: "#22c55e", pink: "#f472b6", purple: "#a855f7", orange: "#fb923c", black: "#4b4b57", brown: "#a0672a" };
+const COLOURED = { apple: ["red", "green", "yellow"], balloon: ["red", "blue", "yellow", "green", "pink", "purple"], ball: ["red", "blue", "yellow", "green"], flower: ["red", "pink", "yellow", "blue", "purple"], fish: ["orange", "blue", "pink"], cat: ["orange", "black"], car: ["red", "blue", "yellow", "green"], butterfly: ["blue", "pink", "yellow", "purple"] };
+const NOUN = { apple: ["apple", "apples"], balloon: ["balloon", "balloons"], ball: ["ball", "balls"], flower: ["flower", "flowers"], fish: ["fish", "fish"], cat: ["cat", "cats"], car: ["car", "cars"], butterfly: ["butterfly", "butterflies"], duck: ["duck", "ducks"], star: ["star", "stars"], cake: ["cupcake", "cupcakes"], teddy: ["teddy", "teddies"] };
+const KIND_CLUE = { apple: "crunchy fruits", balloon: "things that float on a string", ball: "things you can kick", flower: "things that bees visit", fish: "things that swim", cat: "pets that purr", car: "things with four wheels", butterfly: "insects with patterned wings" };
+const COLOUR_CLUE = { red: "the colour of strawberries", blue: "the colour of the sky", yellow: "the colour of the sun", green: "the colour of grass", pink: "the colour of candyfloss", purple: "the colour of grapes", orange: "the colour of carrots", black: "the colour of the night sky" };
+const LALA_POOL = ["duck", "star", "cake", "teddy", "cat", "fish", "car", "balloon", "butterfly", "ball", "apple", "flower"];
+const LALA_COL = { duck: "yellow", star: "yellow", cake: "pink", teddy: "brown", cat: "orange", fish: "orange", car: "red", balloon: "red", butterfly: "blue", ball: "red", apple: "red", flower: "pink" };
+const NUMWORD = ["zero", "one", "two", "three", "four", "five"];
+const FACTS = { 2: ["the number of wheels on a bike", "the number of legs on a duck"], 3: ["the number of sides on a triangle", "the number of wheels on a tricycle"], 4: ["the number of legs on a cat", "the number of corners on a square"] };
+
+// a sum whose answer is n, harder each round (times tables and division like TT Rock Stars)
+function mathsFor(n, r) {
+  if (r === 1) return pick([() => { const d = randInt(2, 6); return `${n * d} ÷ ${d}`; }, () => { const a = randInt(n + 2, n + 9); return `${a} − ${a - n}`; }, () => n > 1 ? `half of ${n * 2}` : null]);
+  if (r === 2) return pick([() => { const d = randInt(3, 10); return `${n * d} ÷ ${d}`; }, () => `${n * 10} ÷ 10`, () => FACTS[n] ? pick(FACTS[n]) : null, () => { const a = randInt(12, 25); return `${a} − ${a - n}`; }]);
+  return pick([() => { const d = randInt(6, 12); return `${n * d} ÷ ${d}`; }, () => FACTS[n] ? pick(FACTS[n]) : null, () => { const d = randInt(4, 12); return `${n * d} ÷ ${d}`; }]);
+}
+function mathsText(n, r) { let s = null, g = 0; while (!s && g++ < 20) s = mathsFor(n, r)(); return s || String(n); }
+
+const game = { screen: "title", mode: "together", round: 0, theme: THEMES[0], decor: [], decals: [], tufts: [], clouds: [], items: [], tasks: [], lala: [],
+  players: [], phase: "hunt", gary: null, stars: 0, t: 0, phaseT: 0, msgs: [], parts: [], banner: null, lastBell: 0, lastLaLa: 0, lastLaLaSay: 0, bellHint: null,
+  bellDone: false, lalaDone: false, winT: 0, introT: 0 };
+const P = id => game.players.find(p => p.id === id);
+
+// ---------- world ----------
+const DECOR_SIZE = { tree: [62, 160], pine: [52, 165], palm: [60, 175], bush: [46, 62], house: [79, 160], mushroom: [28, 52], rock: [32, 36], umbrella: [58, 130], sandcastle: [46, 98], hut: [44, 130], snowman: [30, 145] };
+function generateWorld() {
+  const th = game.theme, occ = [{ x: 640, y: 655, r: 130 }];
+  const free = (x, y, r) => occ.every(o => Math.hypot(o.x - x, (o.y - y) * 1.4) > o.r + r);
+  const place = (r, y0, y1, x0 = 70, x1 = W - 70) => { for (let i = 0; i < 300; i++) { const x = rand(x0, x1), y = rand(y0, y1); if (free(x, y, r)) { occ.push({ x, y, r }); return { x, y }; } } return null; };
+  game.decor = []; game.decals = []; game.items = [];
+  const add = (type, pos, s) => { if (!pos) return; const [hw, h] = DECOR_SIZE[type]; game.decor.push({ type, x: pos.x, y: pos.y, s, hw: hw * s, h: h * s, col: pick(HOUSE_COLS), roof: pick(ROOF_COLS), leaf: pick(th.leaf), ph: Math.random() * 6 }); };
+  th.decals.forEach(d => { const p = place(d === "pond" || d === "pool" ? 95 : 55, HORIZON + 60, H - 60); if (p) game.decals.push({ type: d, x: p.x, y: p.y, s: rand(.9, 1.15) }); });
+  for (let i = 0; i < 4; i++) add(th.extras[i] === "mushroom" ? "house" : th.extras[i], place(85, HORIZON + 45, HORIZON + 125), rand(.85, 1));
+  for (let i = 0; i < 5; i++) add(th.tree, place(72, HORIZON + 40, H - 130), rand(.8, 1.02));
+  for (let i = 0; i < 8; i++) add("bush", place(55, HORIZON + 95, H - 30), rand(.85, 1.15));
+  th.extras.slice(4).forEach(e => add(e, place(55, HORIZON + 120, H - 40), rand(.85, 1.05)));
+  game.place = place;
+  game.tufts = Array.from({ length: 70 }, () => ({ x: rand(0, W), y: rand(HORIZON + 15, H), k: Math.random() }));
+  game.clouds = Array.from({ length: 5 }, (_, i) => ({ x: i * 280 + rand(0, 120), y: rand(40, 150), s: rand(.7, 1.15) }));
+}
+// is this spot covered by any scenery drawn in front of it (ignoring one host)?
+function covered(x, y, s, host) {
+  const iw = 22 * s, ih = 48 * s;
+  return game.decor.some(d => d !== host && d.y >= y - 2 && x + iw > d.x - d.hw * .9 && x - iw < d.x + d.hw * .9 && y > d.y - d.h && y - ih < d.y);
+}
+function generateTasks() {
+  const r = game.round, mode = game.mode;
+  game.tasks = []; game.lala = [];
+  if (mode !== "lala") {
+    const n = 3, maxC = r === 1 ? 3 : 4;
+    shuffle(Object.keys(COLOURED)).slice(0, n).forEach(kind => {
+      const count = randInt(1, maxC), color = pick(COLOURED[kind]);
+      game.tasks.push({ kind, color, count, got: 0, done: false, maths: mathsText(count, r), riddle: r >= 2, colourRiddle: r >= 3 && Math.random() < .7 });
+    });
+  }
+  const used = game.tasks.map(t => t.kind);
+  if (mode !== "bell") {
+    const kinds = shuffle(LALA_POOL.filter(k => !used.includes(k)));
+    const counts = r === 1 ? [1, 1, 1] : r === 2 ? [2, 1, 2] : [3, 2];
+    counts.forEach((c, i) => game.lala.push({ kind: kinds[i], color: LALA_COL[kinds[i]], count: c, got: 0, items: [] }));
+  }
+  const lalaKinds = game.lala.map(t => t.kind);
+  const hideP = r === 1 ? .35 : r === 2 ? .5 : .6;
+  const hosts = game.decor.filter(d => ["bush", "rock", "sandcastle", "snowman", "mushroom", "hut", "house"].includes(d.type));
+  const spots = [];
+  const ok = (x, y, s, host) => x > 40 && x < W - 40 && y > HORIZON + 95 && y < H - 14 && spots.every(p => Math.hypot(p.x - x, p.y - y) > 52) && !covered(x, y, s, host)
+    && game.players.every(p => Math.hypot(p.x - x, p.y - y) > 80);
+  const placeItem = (it, canHide) => {
+    let pos = null;
+    if (canHide && Math.random() < hideP) for (let i = 0; i < 30 && !pos; i++) {
+      const h = pick(hosts), side = Math.random() < .5 ? -1 : 1, x = h.x + side * (h.hw * .9 + 6), y = h.y - 7;
+      if (ok(x, y, it.s, h)) pos = { x, y };   // peeks out beside the host, at least half showing
+    }
+    for (let i = 0; i < 400 && !pos; i++) { const x = rand(60, W - 60), y = rand(HORIZON + 100, H - 22); if (ok(x, y, it.s) && game.decor.every(d => Math.hypot(d.x - x, (d.y - y) * 1.5) > d.hw * .8 + 20)) pos = { x, y }; }
+    if (!pos) for (let i = 0; i < 400 && !pos; i++) { const x = rand(60, W - 60), y = rand(HORIZON + 100, H - 22); if (!covered(x, y, it.s)) pos = { x, y }; }
+    if (!pos) pos = { x: rand(100, W - 100), y: H - 30 };
+    spots.push(pos); Object.assign(it, pos, { found: false, pop: 0, ph: Math.random() * 6 }); game.items.push(it);
+  };
+  game.lala.forEach(t => { for (let i = 0; i < t.count; i++) { const it = { kind: t.kind, color: t.color, s: 1.45, owner: "lala", task: t }; t.items.push(it); placeItem(it, false); } });
+  game.tasks.forEach(t => { for (let i = 0; i < t.count; i++) placeItem({ kind: t.kind, color: t.color, s: 1, owner: "bell", task: t }, true); });
+  if (mode !== "lala") {
+    const clash = (k, c) => game.tasks.some(t => t.kind === k && t.color === c);
+    const decoys = [];
+    game.tasks.forEach(t => { const others = COLOURED[t.kind].filter(c => c !== t.color); for (let i = 0; i < randInt(1, 2) && others.length; i++) decoys.push([t.kind, pick(others)]); });
+    const total = r === 1 ? 8 : r === 2 ? 10 : 12, kinds = Object.keys(COLOURED).filter(k => !lalaKinds.includes(k));
+    let guard = 0;
+    while (decoys.length < total && guard++ < 200) { const k = pick(kinds), c = pick(COLOURED[k]); if (!clash(k, c)) decoys.push([k, c]); }
+    decoys.forEach(([k, c]) => placeItem({ kind: k, color: c, s: 1, owner: null }, true));
+  }
+}
+
+function startGame(mode) {
+  KG.unlockAudio();
+  game.mode = mode; game.round = 0; game.stars = 0;
+  document.getElementById("menu").hidden = true;
+  KG.track("game_start", { game_name: "seek", game_mode: mode });
+  nextRound();
+}
+function lalaLine(t) { return t.count === 1 ? `find the ${t.color} ${NOUN[t.kind][0]}` : `find ${NUMWORD[t.count]} ${NOUN[t.kind][1]}`; }
+function nextRound() {
+  if (game.round >= ROUNDS) { game.round = 0; game.stars = 0; }
+  game.round++; game.theme = THEMES[(game.round - 1) % THEMES.length];
+  game.players = game.mode === "together" ? [KG.mkPlayer("bell", { x: 570, y: 655 }), KG.mkPlayer("lala", { x: 710, y: 655, face: -1 })] : [KG.mkPlayer(game.mode, { x: 640, y: 655 })];
+  generateWorld(); generateTasks();
+  Object.assign(game, { screen: "play", phase: "hunt", phaseT: 0, gary: null, msgs: [], bellDone: game.mode === "lala", lalaDone: game.mode === "bell", lastBell: game.t, lastLaLa: game.t, lastLaLaSay: game.t, bellHint: null, introT: game.t, parts: [] });
+  banner(`${game.theme.name}!`);
+  const l = game.lala[0] ? `${NL}, can you ${lalaLine(game.lala[0])}?` : "";
+  speak(game.mode === "together" ? `${game.theme.name}! ${NB}, read your clues. ${l}` : game.mode === "bell" ? `${game.theme.name}! ${NB}, read your clues and find everything.` : `${game.theme.name}! ${l}`);
+}
+
+// ---------- input ----------
+const keys = new Set();
+const BELL = { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"], act: ["Space", "KeyE", "KeyF", "KeyQ"] };
+const LALA = { up: ["ArrowUp", "Numpad8"], down: ["ArrowDown", "Numpad2"], left: ["ArrowLeft", "Numpad4"], right: ["ArrowRight", "Numpad6"], act: ["Enter", "NumpadEnter", "ShiftRight", "ControlRight", "Slash", "Period", "Comma", "Numpad5", "Numpad0"] };
+const GAME_KEYS = new Set([...Object.values(BELL).flat(), ...Object.values(LALA).flat()]);
+const SOLO = { up: [...BELL.up, ...LALA.up], down: [...BELL.down, ...LALA.down], left: [...BELL.left, ...LALA.left], right: [...BELL.right, ...LALA.right], act: [...BELL.act, ...LALA.act] };
+const mapFor = p => game.mode !== "together" ? SOLO : p.id === "bell" ? BELL : LALA;
+addEventListener("keydown", e => {
+  if (GAME_KEYS.has(e.code) && !e.target.closest("button,a")) e.preventDefault();
+  if (!keys.has(e.code)) onPress(e.code);
+  keys.add(e.code);
+});
+addEventListener("keyup", e => keys.delete(e.code));
+addEventListener("blur", () => keys.clear());
+function onPress(code) {
+  if (game.screen === "title") {
+    if (document.activeElement && document.activeElement.tagName === "BUTTON") return;
+    if (code === "Space" || code === "Enter" || code === "Digit1") startGame("together"); else if (code === "Digit2") startGame("bell"); else if (code === "Digit3") startGame("lala");
+    return;
+  }
+  if (game.screen === "win" || game.screen === "end") {
+    if ((code === "Space" || code === "Enter") && game.t - game.winT > 1.5) nextRound();
+    if (code === "Escape" && game.screen === "end") location.href = "../index.html";
+    return;
+  }
+  if (code === "KeyH" && P("bell")) giveBellHint();
+  game.players.forEach(p => { if (mapFor(p).act.includes(code)) act(p); });
+}
+const padPrev = {};
+function pollPads() {
+  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  pads.forEach((pd, i) => {
+    const b = n => pd.buttons[n] && pd.buttons[n].pressed;
+    const dx = (Math.abs(pd.axes[0] || 0) > .3 ? pd.axes[0] : 0) + (b(15) ? 1 : 0) - (b(14) ? 1 : 0);
+    const dy = (Math.abs(pd.axes[1] || 0) > .3 ? pd.axes[1] : 0) + (b(13) ? 1 : 0) - (b(12) ? 1 : 0);
+    const a = b(0) || b(1) || b(2) || b(3), fresh = a && !padPrev[i]; padPrev[i] = a;
+    if (game.screen === "title" && fresh) return startGame("together");
+    if ((game.screen === "win" || game.screen === "end") && fresh && game.t - game.winT > 1.5) return nextRound();
+    if (game.screen !== "play") return;
+    const p = game.mode === "together" ? game.players[i] : game.players[0];
+    if (!p) return; p.pad = { dx, dy }; if (fresh) act(p);
+  });
+}
+document.getElementById("game").addEventListener("pointerdown", e => {
+  if (game.screen === "win" || game.screen === "end") { if (game.t - game.winT > 1.5) nextRound(); return; }
+  if (game.screen !== "play") return;
+  const w = KG.toWorld(e), p = game.mode === "bell" ? P("bell") : P("lala");
+  if (!p) return;
+  p.target = { x: clamp(w.x, 40, W - 40), y: clamp(w.y + 20, HORIZON + 40, H - 12) }; p.actOnArrive = true;
+});
+
+// ---------- gameplay ----------
+const itemCentre = it => ({ x: it.x, y: it.y - 22 * it.s });
+function nearestItem(p, r, f) { let best = null, bd = r; game.items.forEach(it => { if (!f(it)) return; const c = itemCentre(it), d = Math.hypot(c.x - p.x, c.y - (p.y - 22)); if (d < bd) { bd = d; best = it; } }); return best; }
+function say(p, text) { game.msgs = game.msgs.filter(m => m.p !== p); game.msgs.push({ p, text, t: 0, dur: 2.8 }); }
+function banner(text) { game.banner = { text, t: 0 }; }
+function burst(x, y, n, cols, kind = "spark") { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = rand(90, 300); game.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: rand(.6, 1.2), max: 1.2, col: pick(cols), kind, rot: Math.random() * 6 }); } }
+
+function act(p) {
+  if (game.screen !== "play") return;
+  if (game.phase === "gary") return tryGary(p, 95);
+  if (game.phase !== "hunt") return;
+  if (p.id === "bell") bellTry(p); else lalaTry(p, 95);
+}
+function collect(it) {
+  it.found = true; it.pop = .001; game.stars++;
+  const c = itemCentre(it); burst(c.x, c.y, 18, ["#ffd23f", "#ffffff", COLORS[it.color] || "#ff7ab6"]); sfx.pick();
+}
+function bellTry(p) {
+  const it = nearestItem(p, 75, i => !i.found);
+  if (!it) return;
+  if (it.owner === "lala") { say(p, game.mode === "together" ? `That one's for ${NL}!` : "Not on your list!"); sfx.boop(); return; }
+  const task = game.tasks.find(t => !t.done && t.kind === it.kind && t.color === it.color);
+  if (task) {
+    collect(it); task.got++; game.lastBell = game.t; game.bellHint = null;
+    if (task.got >= task.count) { task.done = true; sfx.done(); say(p, `That's all ${task.count}!`); } else say(p, `${task.got}!`);
+    return checkDone();
+  }
+  const want = game.tasks.find(t => !t.done && t.kind === it.kind);
+  if (want) say(p, want.colourRiddle ? "Right thing, wrong colour!" : `That one is ${it.color}. Find ${want.color}!`);
+  else if (game.tasks.some(t => t.kind === it.kind)) say(p, "You've got enough of those!");
+  else say(p, "Not that one. Read the clues again!");
+  sfx.boop();
+}
+function lalaTry(p, r) {
+  const it = nearestItem(p, r, i => !i.found && i.owner === "lala");
+  if (!it) return;
+  collect(it); game.lastLaLa = game.t; const t = it.task; t.got++;
+  const next = game.lala.find(x => x.got < x.count);
+  let line1 = t.count > 1 ? `${NUMWORD[t.got].replace(/^./, c => c.toUpperCase())}!` : `Yay! The ${t.color} ${NOUN[t.kind][0]}!`;
+  if (t.count > 1 && t.got === t.count) line1 += ` ${NUMWORD[t.count].replace(/^./, c => c.toUpperCase())} ${NOUN[t.kind][1]}!`;
+  if (next && next !== t) line1 += ` Now ${lalaLine(next)}!`;
+  speak(line1); game.lastLaLaSay = game.t; say(p, t.count > 1 ? `${t.got}!` : "Yay!");
+  checkDone();
+}
+function checkDone() {
+  const bDone = game.mode === "lala" || game.tasks.every(t => t.done);
+  const lDone = game.mode === "bell" || game.lala.every(t => t.got >= t.count);
+  if (bDone && !game.bellDone) { game.bellDone = true; if (!lDone) speak(`Brilliant, ${NB}! Your clues are solved. Can you help ${NL}?`); }
+  if (lDone && !game.lalaDone) { game.lalaDone = true; sfx.done(); if (!bDone) speak(`Well done ${NL}! You found them all!`); }
+  if (bDone && lDone && game.phase === "hunt") { game.phase = "wait"; game.phaseT = 0; }
+}
+function giveBellHint() {
+  if (game.phase !== "hunt" || game.bellDone) return;
+  const need = game.items.filter(it => !it.found && it.owner === "bell" && !it.task.done);
+  if (need.length) { game.bellHint = { item: pick(need), until: game.t + 4 }; game.lastBell = game.t; }
+}
+function startGary() {
+  const hosts = game.decor.filter(d => ["house", "hut", "bush", "snowman", "sandcastle"].includes(d.type) && d.y > HORIZON + 60);
+  const far = hosts.filter(h => game.players.every(p => Math.hypot(h.x - p.x, h.y - p.y) > 260));
+  const host = pick(far.length ? far : hosts);
+  const side = host.x < 200 ? 1 : host.x > W - 200 ? -1 : (Math.random() < .5 ? -1 : 1);
+  game.gary = { host, side, t: 0, found: false, lastGiggle: game.t };
+  game.phase = "gary"; game.phaseT = 0;
+  banner(`Now find ${ND}!`); speak(`Everything's found! Now find ${ND}. ${ND} is hiding!`);
+}
+function garyPeek() { const g = game.gary; if (!g) return 0; const c = (g.t % 4.2) / 4.2; return c < .55 ? 1 : c < .7 ? 1 - (c - .55) / .15 : c < .85 ? 0 : (c - .85) / .15; }
+function garyPos() {
+  const g = game.gary, h = g.host, peek = garyPeek();
+  if (h.type !== "house") return { x: h.x + g.side * h.hw * .3, y: h.y - 6, dy: Math.max(0, 126 - h.h - 42) + (1 - peek) * 58 };
+  return { x: h.x + g.side * (h.hw * .55 + peek * 34), y: h.y - 6, dy: 0 };
+}
+function tryGary(p, r) {
+  const g = game.gary; if (!g || g.found) return;
+  const gp = garyPos();
+  if (Math.hypot(gp.x - p.x, (gp.y - 50) - (p.y - 40)) < r || Math.hypot(g.host.x - p.x, g.host.y - p.y) < g.host.hw + 30) {
+    g.found = true; game.phase = "found"; game.phaseT = 0; game.stars += 5; g.jumpFrom = { x: gp.x };
+    sfx.win(); burst(gp.x, gp.y - 80, 70, ["#ffd23f", "#ff7ab6", "#7cc6ff", "#8be38b", "#b18cff"], "confetti");
+    speak(`You found me! Well done ${names()}!`, 1.0);
+  }
+}
+const names = () => game.mode === "together" ? `${NB} and ${NL}` : game.mode === "bell" ? NB : NL;
+
+// ---------- update ----------
+function update(dt) {
+  game.t += dt;
+  game.clouds.forEach(c => { c.x += 10 * dt * c.s; if (c.x > W + 160) c.x = -160; });
+  game.parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.kind === "confetti" ? 260 : 420) * dt; q.vx *= .99; q.life -= dt; q.rot += dt * 6; });
+  game.parts = game.parts.filter(q => q.life > 0);
+  game.msgs.forEach(m => m.t += dt); game.msgs = game.msgs.filter(m => m.t < m.dur);
+  if (game.banner) { game.banner.t += dt; if (game.banner.t > 2.6) game.banner = null; }
+  game.items.forEach(it => { if (it.pop) it.pop += dt * 2.2; });
+  if (game.screen !== "play") return;
+  game.phaseT += dt;
+  pollPads();
+  game.players.forEach(p => {
+    const m = mapFor(p), k = a => m[a].some(c => keys.has(c)) ? 1 : 0;
+    let dx = k("right") - k("left"), dy = k("down") - k("up");
+    if (p.pad) { dx += p.pad.dx; dy += p.pad.dy; }
+    if (dx || dy) { p.target = null; p.actOnArrive = false; }
+    else if (p.target) {
+      const vx = p.target.x - p.x, vy = p.target.y - p.y, d = Math.hypot(vx, vy);
+      if (d < 10) { const a = p.actOnArrive; p.target = null; p.actOnArrive = false; if (a) act(p); } else { dx = vx / d; dy = vy / d; }
+    }
+    const mag = Math.hypot(dx, dy); if (mag > 1) { dx /= mag; dy /= mag; }
+    const sp = p.id === "bell" ? 340 : 300;
+    p.x = clamp(p.x + dx * sp * dt, 40, W - 40); p.y = clamp(p.y + dy * sp * dt * .85, HORIZON + 45, H - 12);
+    p.moving = mag > .1; if (p.moving) { p.walk += dt * 11; if (Math.abs(dx) > .2) p.face = dx > 0 ? 1 : -1; }
+    if (p.id === "lala" && game.phase === "hunt") lalaTry(p, 62);
+    if (game.phase === "gary") tryGary(p, 62);
+  });
+  if (game.phase === "hunt" && !game.lalaDone) {
+    const next = game.lala.find(t => t.got < t.count);
+    if (next && game.t - game.lastLaLaSay > 13 && game.t - game.introT > 6) { speak(`${NL}, ${lalaLine(next)}!`); game.lastLaLaSay = game.t; }
+  }
+  if (game.phase === "hunt" && !game.bellDone && !game.bellHint && game.t - game.lastBell > 30) giveBellHint();
+  if (game.bellHint && game.t > game.bellHint.until) game.bellHint = null;
+  if (game.phase === "wait" && game.phaseT > 1.6) startGary();
+  if (game.phase === "gary") { const g = game.gary; g.t += dt; if (game.t - g.lastGiggle > 10) { g.lastGiggle = game.t; sfx.giggle(); g.giggleT = game.t; } }
+  if (game.phase === "found" && game.phaseT > 2.8) {
+    game.screen = game.round >= ROUNDS ? "end" : "win"; game.winT = game.t; game.parts = [];
+    burst(W / 2, 260, game.screen === "end" ? 200 : 120, ["#ffd23f", "#ff7ab6", "#7cc6ff", "#8be38b", "#b18cff"], "confetti");
+    if (game.screen === "end") { sfx.win(); speak(`Adventure complete! Amazing teamwork, ${names()}!`); KG.track("game_complete", { game_name: "seek", game_mode: game.mode }); }
+  }
+}
+
+// ---------- items ----------
+function drawItem(kind, color, x, y, s, t = 0, ph = 0) {
+  const c = COLORS[color] || "#ff7ab6", d = shade(c, -.25), l = shade(c, .5);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  switch (kind) {
+    case "apple": line(0, -33, 3, -42, "#7a4a22", 4); ell(9, -40, 8, 4, "#4cbb4a", 2.5, -.5); ell(0, -18, 18, 16, c); ell(-7, -24, 4, 6, "rgba(255,255,255,.6)", 0); break;
+    case "balloon": { const b = Math.sin(t * 2 + ph) * 3; ctx.translate(0, b);
+      ctx.beginPath(); ctx.moveTo(0, -24); ctx.quadraticCurveTo(-6, -14, 0, -8); ctx.quadraticCurveTo(6, -2, 0, 4); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke();
+      poly([[-4, -22], [4, -22], [0, -27]], d, 2); ell(0, -44, 16, 19, c); ell(-6, -50, 4, 7, "rgba(255,255,255,.6)", 0); break; }
+    case "ball": circ(0, -17, 17, c); ctx.save(); ctx.beginPath(); ctx.arc(0, -17, 15.5, 0, Math.PI * 2); ctx.clip(); ell(0, -17, 18, 5, "#fff", 0); ctx.restore(); circ(0, -17, 17, null); ell(-7, -24, 3.5, 5, "rgba(255,255,255,.7)", 0); break;
+    case "flower": line(0, 0, 0, -26, "#3f9a3f", 4); ell(-8, -10, 7, 3.5, "#4cbb4a", 2, -.6);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 - Math.PI / 2; circ(Math.cos(a) * 9, -34 + Math.sin(a) * 9, 7.5, c, 2.5); }
+      circ(0, -34, 5.5, color === "yellow" ? "#f97316" : "#ffd23f", 2.5); break;
+    case "fish": ell(0, -3, 26, 6, "rgba(80,170,240,.45)", 0); poly([[-14, -14], [-30, -25], [-30, -3]], d); ell(0, -14, 19, 12, c); poly([[-2, -25], [8, -25], [2, -32]], d, 2.5); circ(9, -17, 4.5, "#fff", 2); circ(10, -17, 2, INK, 0); break;
+    case "cat": { const cc = color === "black" ? "#3d3d48" : c;
+      ctx.beginPath(); ctx.moveTo(12, -6); ctx.quadraticCurveTo(30, -10, 22, -26); ctx.strokeStyle = INK; ctx.lineWidth = 9; ctx.stroke(); ctx.strokeStyle = cc; ctx.lineWidth = 4; ctx.stroke();
+      ell(0, -15, 14, 15, cc); poly([[-11, -42], [-11, -56], [-2, -46]], cc, 2.5); poly([[11, -42], [11, -56], [2, -46]], cc, 2.5); circ(0, -38, 13, cc);
+      const eye = color === "black" ? "#ffd23f" : INK; circ(-5, -40, 2.4, eye, 0); circ(5, -40, 2.4, eye, 0); poly([[-2, -35], [2, -35], [0, -33]], "#ff9fb0", 1.5);
+      line(-14, -35, -22, -37, color === "black" ? "#ddd" : INK, 1.5); line(14, -35, 22, -37, color === "black" ? "#ddd" : INK, 1.5); break; }
+    case "car": rr(-26, -26, 52, 18, 8, c); rr(-14, -40, 28, 16, 7, c); rr(-10, -37, 9, 10, 3, "#cdeeff", 2); rr(1, -37, 9, 10, 3, "#cdeeff", 2);
+      circ(-14, -8, 8, "#3a3a46"); circ(14, -8, 8, "#3a3a46"); circ(-14, -8, 3, "#cfcfd6", 0); circ(14, -8, 3, "#cfcfd6", 0); circ(23, -20, 3, "#fff3a0", 1.5); break;
+    case "butterfly": { const h = 10 + Math.sin(t * 3 + ph) * 4, f = .55 + .45 * Math.abs(Math.sin(t * 9 + ph));
+      ell(0, -2, 12, 4, "rgba(0,0,0,.12)", 0); ctx.translate(0, -h);
+      ctx.save(); ctx.scale(f, 1); ell(-12, -30, 12, 10, c, 2.5, -.3); ell(12, -30, 12, 10, c, 2.5, .3); ell(-9, -17, 8, 7, l, 2.5, .3); ell(9, -17, 8, 7, l, 2.5, -.3); ctx.restore();
+      ell(0, -24, 3.5, 13, INK, 0); line(-1, -36, -6, -44, INK, 2); line(1, -36, 6, -44, INK, 2); break; }
+    case "duck": ell(0, -15, 19, 13, "#ffd93b"); circ(11, -32, 10.5, "#ffd93b"); ell(22, -30, 7, 4, "#ff8a1f", 2.5); ell(-3, -16, 9, 6, "#ffe98a", 2); circ(13, -34, 2.3, INK, 0); break;
+    case "star": { ctx.translate(0, -22); ctx.rotate(Math.sin(t * 1.5 + ph) * .15); KG.star5(0, 0, 21, "#ffd23f"); ell(-5, -6, 3, 5, "rgba(255,255,255,.7)", 0); break; }
+    case "cake": poly([[-15, -18], [15, -18], [11, 0], [-11, 0]], "#ffb86b"); line(-5, -16, -4, -2, "#d98a3a", 2); line(5, -16, 4, -2, "#d98a3a", 2);
+      cluster([[-9, -22, 9], [9, -22, 9], [0, -29, 11]], "#ff9fcf", 2.5); circ(0, -41, 5, "#ef4444", 2.5); line(0, -46, 3, -51, "#3f9a3f", 2); break;
+    case "teddy": { const b = "#b97a3d", m = "#e8c79a";
+      circ(-10, -46, 6, b, 2.5); circ(10, -46, 6, b, 2.5); ell(0, -15, 15, 15, b); ell(-15, -18, 5, 8, b, 2.5, .4); ell(15, -18, 5, 8, b, 2.5, -.4);
+      ell(0, -12, 8, 8, m, 0); circ(0, -36, 13, b); ell(0, -32, 6, 4.5, m, 0); circ(0, -33, 2, INK, 0); circ(-5, -39, 2, INK, 0); circ(5, -39, 2, INK, 0); break; }
+  }
+  ctx.restore();
+}
+
+// ---------- scenery ----------
+function drawSky() {
+  const th = game.theme, g = ctx.createLinearGradient(0, 0, 0, HORIZON);
+  g.addColorStop(0, th.sky[0]); g.addColorStop(1, th.sky[1]); ctx.fillStyle = g; ctx.fillRect(0, 0, W, HORIZON + 2);
+  ctx.save(); ctx.translate(1110, 92); ctx.rotate(game.t * .15);
+  for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); rr(48, -5, 22, 10, 5, th.snowy ? "#fff2b8" : "#ffd84a", 0); }
+  ctx.restore(); circ(1110, 92, 42, th.snowy ? "#fff6c9" : "#ffd23f");
+  game.clouds.forEach(c => { ctx.save(); ctx.translate(c.x, c.y); ctx.scale(c.s, c.s); cluster([[-40, 0, 24], [-12, -14, 30], [22, -8, 26], [46, 4, 20], [0, 8, 22]], "#fff", 1.5); ctx.restore(); });
+  if (th.sea) {
+    ctx.fillStyle = "#2fa3e0"; ctx.fillRect(0, 175, W, HORIZON - 175 + 4); ctx.fillStyle = "#58bdf0"; ctx.fillRect(0, 175, W, 14);
+    for (let i = 0; i < 14; i++) { const x = (i * 97 + game.t * 18) % (W + 60) - 30, y = 200 + (i % 3) * 16; ctx.beginPath(); ctx.arc(x, y, 9, Math.PI * 1.1, Math.PI * 1.9); ctx.strokeStyle = "#bfe8ff"; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.fillStyle = "#fff"; for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.arc(x + Math.sin(game.t * 2 + x) * 4, HORIZON + 2, 14, Math.PI, 0); ctx.fill(); }
+  } else {
+    [[th.hills[0], 175, 90], [th.hills[1], 205, 70]].forEach(([col, base, r], li) => {
+      ctx.beginPath(); ctx.moveTo(0, HORIZON + 5);
+      for (let x = -60; x <= W + 120; x += 180) ctx.ellipse(x + li * 90, base + r * .25, 140, r, 0, Math.PI, 0);
+      ctx.lineTo(W, HORIZON + 5); ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    });
+  }
+}
+function drawGround() {
+  const th = game.theme;
+  ctx.fillStyle = th.ground; ctx.fillRect(0, HORIZON, W, H - HORIZON);
+  ctx.fillStyle = th.patch; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse((i * 233 + 90) % W, HORIZON + 70 + (i * 97) % (H - HORIZON - 90), 120, 30, 0, 0, Math.PI * 2); ctx.fill(); }
+  game.tufts.forEach(t => {
+    if (th.sea) { if (t.k < .3) ell(t.x, t.y, 4, 3, "#f3a6b8", 1.5); else if (t.k < .45) circ(t.x, t.y, 2, "#c9a35a", 0); }
+    else if (th.snowy) { if (t.k < .35) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(t.x, t.y, 2.5, 0, 7); ctx.fill(); } }
+    else { ctx.strokeStyle = th.tuft; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(t.x - 5, t.y); ctx.lineTo(t.x - 7, t.y - 8); ctx.moveTo(t.x, t.y); ctx.lineTo(t.x, t.y - 11); ctx.moveTo(t.x + 5, t.y); ctx.lineTo(t.x + 7, t.y - 8); ctx.stroke(); }
+  });
+  game.decals.forEach(d => {
+    ctx.save(); ctx.translate(d.x, d.y); ctx.scale(d.s, d.s);
+    if (d.type === "pond" || d.type === "pool") { ell(0, 0, 90, 34, d.type === "pond" ? "#5fb6ef" : "#62c8f2"); ell(-10, -6, 60, 18, "rgba(255,255,255,.25)", 0); if (d.type === "pond") { ell(-40, 6, 13, 7, "#4cbb4a", 2); ell(30, -8, 11, 6, "#4cbb4a", 2); circ(34, -10, 3.5, "#ff9fcf", 0); } else { circ(-50, 2, 9, "#a8a29e", 2); circ(55, 6, 7, "#a8a29e", 2); } }
+    else if (d.type === "flowers") { for (let i = 0; i < 9; i++) { const x = (i % 3 - 1) * 22 + (i * 7 % 5), y = (Math.floor(i / 3) - 1) * 14; line(x, y, x, y - 9, "#3f9a3f", 2); circ(x, y - 11, 4.5, ["#fff", "#ffe066", "#ffb3d1"][i % 3], 1.5); } }
+    else if (d.type === "shells") { [[-20, 0], [10, 8], [24, -6]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 7, Math.PI, 0); ctx.closePath(); ctx.fillStyle = "#ffd1dc"; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.stroke(); }); }
+    else if (d.type === "ice") { ell(0, 0, 70, 22, "#cdeafc", 2.5); line(-30, -4, 10, 4, "#fff", 3); }
+    ctx.restore();
+  });
+}
+function drawDecor(d) {
+  const th = game.theme;
+  ctx.save(); ctx.translate(d.x, d.y); ctx.scale(d.s, d.s);
+  ell(0, 0, DECOR_SIZE[d.type][0] * .8, 9, "rgba(0,0,0,.13)", 0);
+  switch (d.type) {
+    case "tree": rr(-10, -60, 20, 60, 6, "#9a6a3e"); cluster([[-32, -82, 34], [30, -84, 34], [0, -116, 42], [0, -80, 36]], d.leaf); circ(-14, -122, 12, "rgba(255,255,255,.18)", 0); circ(-34, -90, 9, "rgba(255,255,255,.15)", 0); break;
+    case "pine": rr(-8, -30, 16, 30, 4, "#8a5a32");
+      [[0, -30, 52, 50], [0, -70, 42, 46], [0, -106, 30, 44]].forEach(([x, y, w, h]) => { poly([[-w, y], [w, y], [0, y - h]], d.leaf); if (th.snowy) poly([[-w * .45, y - h * .55], [w * .45, y - h * .55], [0, y - h]], "#fff", 2); }); break;
+    case "palm": { for (let i = 0; i < 9; i++) { const y = -i * 17, x = Math.sin(i * .25) * 10 * (d.ph > 3 ? 1 : -1); ell(x, y - 8, 11 - i * .4, 9, i % 2 ? "#b07a44" : "#c48b52", 2.5); }
+      const tx = Math.sin(2) * 10 * (d.ph > 3 ? 1 : -1), ty = -150;
+      [-2.6, -2, -1.2, -.4, .3].forEach((a, i) => { ctx.save(); ctx.translate(tx, ty); ctx.rotate(a + Math.sin(game.t + i) * .04); ell(36, 0, 40, 11, "#3fae4f"); ctx.restore(); });
+      circ(tx - 7, ty + 9, 7, "#7a4a22", 2.5); circ(tx + 6, ty + 11, 7, "#7a4a22", 2.5); break; }
+    case "bush": cluster([[-24, -22, 22], [22, -24, 23], [0, -38, 25]], th.bush); if (th.snowy) cluster([[-14, -54, 11], [6, -60, 12], [20, -46, 9]], "#fff", 1.5); else circ(-10, -42, 6, "rgba(255,255,255,.18)", 0); break;
+    case "house": { const w = 130, h = 95;
+      rr(-w / 2 + 64, -h - 52, 18, 34, 3, "#b55d43"); rr(-w / 2, -h, w, h, 6, d.col);
+      poly([[-w / 2 - 14, -h + 2], [w / 2 + 14, -h + 2], [0, -h - 62]], th.snowy ? "#ffffff" : d.roof);
+      if (th.snowy) line(-w / 2 - 6, -h + 2, w / 2 + 6, -h + 2, "#cfe3f2", 4);
+      rr(-14, -52, 28, 52, [14, 14, 0, 0], "#c9783f"); circ(7, -24, 2.5, "#ffd23f", 0);
+      [[-46, -70], [24, -70]].forEach(([x, y]) => { rr(x, y, 22, 22, 4, "#cdeeff"); line(x + 11, y, x + 11, y + 22, INK, 2); line(x, y + 11, x + 22, y + 11, INK, 2); });
+      circ(0, -h - 26, 9, "#cdeeff", 2.5); break; }
+    case "mushroom": rr(-9, -26, 18, 26, 6, "#fff3dc"); ctx.beginPath(); ctx.ellipse(0, -24, 28, 26, 0, Math.PI, 0); ctx.closePath(); ctx.fillStyle = "#e2513f"; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
+      circ(-12, -34, 4.5, "#fff", 0); circ(6, -42, 5, "#fff", 0); circ(15, -30, 3.5, "#fff", 0); break;
+    case "rock": ell(0, -16, 32, 18, "#b4aca6"); ell(-10, -24, 9, 5, "rgba(255,255,255,.35)", 0); if (th.snowy) ell(0, -30, 20, 6, "#fff", 2); break;
+    case "umbrella": { line(0, 0, 0, -92, "#6b4a2b", 5);
+      for (let i = 0; i < 6; i++) { const a0 = Math.PI + i * Math.PI / 6, a1 = a0 + Math.PI / 6; ctx.beginPath(); ctx.moveTo(0, -92); ctx.ellipse(0, -92, 58, 34, 0, a0, a1); ctx.closePath(); ctx.fillStyle = i % 2 ? "#fff" : (d.ph > 3 ? "#ef4444" : "#3b82f6"); ctx.fill(); }
+      ctx.beginPath(); ctx.ellipse(0, -92, 58, 34, 0, Math.PI, 0); ctx.closePath(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke(); circ(0, -127, 4, "#ffd23f", 2); break; }
+    case "sandcastle": { const sc = "#e9bf63";
+      rr(-40, -34, 80, 34, 4, sc); rr(-44, -66, 26, 66, 4, sc); rr(18, -66, 26, 66, 4, sc); rr(-14, -58, 28, 30, 3, sc);
+      [-44, -31, 18, 31].forEach(x => rr(x, -74, 13, 9, 2, sc, 2.5)); rr(-7, -20, 14, 20, [7, 7, 0, 0], "#b9883a", 2.5);
+      line(-31, -74, -31, -96, INK, 2.5); poly([[-31, -96], [-14, -90], [-31, -84]], "#ef4444", 2); break; }
+    case "hut": { const col = d.ph > 3 ? "#ff8fb1" : "#7cc6ff";
+      rr(-36, -96, 72, 96, 4, "#fff"); ctx.fillStyle = col; for (let i = 0; i < 4; i++) ctx.fillRect(-36 + 3 + i * 18, -94, 9, 92);
+      rr(-36, -96, 72, 96, 4, null); poly([[-44, -94], [44, -94], [0, -128]], col); rr(-13, -60, 26, 60, 3, "#ffd23f", 2.5); break; }
+    case "snowman": circ(0, -26, 27, "#fff"); circ(0, -68, 20, "#fff"); circ(0, -100, 15, "#fff");
+      circ(0, -60, 2.5, INK, 0); circ(0, -72, 2.5, INK, 0); circ(-5, -103, 2.2, INK, 0); circ(5, -103, 2.2, INK, 0);
+      poly([[0, -99], [0, -94], [14, -97]], "#ff8a1f", 2); rr(-16, -88, 32, 8, 4, "#ef4444", 2.5); rr(6, -86, 8, 18, 3, "#ef4444", 2.5);
+      rr(-14, -122, 28, 9, 2, "#333", 2.5); rr(-9, -142, 18, 22, 2, "#333", 2.5); break;
+  }
+  ctx.restore();
+}
+
+// ---------- drawing ----------
+function drawWorld() {
+  drawSky(); drawGround();
+  const list = [];
+  game.decor.forEach(d => list.push({ y: d.y, f: () => drawDecor(d) }));
+  game.items.forEach(it => {
+    if (it.found && it.pop > 1) return;
+    list.push({ y: it.y, f: () => {
+      if (it.found) { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - it.pop); drawItem(it.kind, it.color, it.x, it.y - it.pop * 50, it.s * (1 + it.pop * .6), game.t, it.ph); ctx.restore(); return; }
+      if (it.owner === "lala") { const pulse = 1 + Math.sin(game.t * 4 + it.ph) * .08; ctx.save(); ctx.globalAlpha = .55; ell(it.x, it.y - 2, 40 * pulse, 13 * pulse, "#ffb3d6", 0); ctx.restore(); drawItem(it.kind, it.color, it.x, it.y - Math.abs(Math.sin(game.t * 3 + it.ph)) * 6, it.s, game.t, it.ph); }
+      else drawItem(it.kind, it.color, it.x, it.y, it.s, game.t, it.ph);
+    } });
+  });
+  if (game.gary && game.phase === "gary") {
+    list.push({ y: game.gary.host.y - 6, f: () => { const gp = garyPos(); ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, gp.y - 2); ctx.clip(); KG.drawAdult(gp.x, gp.y + gp.dy, .9, "dad"); ctx.restore(); } });
+  }
+  list.sort((a, b) => a.y - b.y).forEach(o => o.f());
+  if (game.screen === "play" && game.phase === "found" && game.gary) {
+    const k = Math.min(1, game.phaseT * 1.6);
+    KG.drawAdult(game.gary.jumpFrom.x, game.gary.host.y + 34, 1.15, "dad", { wave: true, jump: Math.abs(Math.sin(game.phaseT * 6)) * 22 * k });
+  }
+}
+function drawPlayers() {
+  game.players.slice().sort((a, b) => a.y - b.y).forEach(p => KG.drawKid(p, p.x, p.y, 1, { jump: game.phase === "found" ? Math.abs(Math.sin(game.t * 7 + (p.id === "bell" ? 0 : 1))) * 16 : 0, wave: game.phase === "found" }));
+}
+function drawHelpers() {
+  if (game.phase === "hunt" && !game.lalaDone && game.t - game.lastLaLa > 9) {
+    const next = game.lala.find(t => t.got < t.count), it = next && next.items.find(i => !i.found);
+    if (it) { const b = Math.abs(Math.sin(game.t * 5)) * 12; poly([[it.x - 16, it.y - 100 - b], [it.x + 16, it.y - 100 - b], [it.x, it.y - 78 - b]], "#ff5fa8"); }
+  }
+  if (game.bellHint) { const c = itemCentre(game.bellHint.item); for (let i = 0; i < 5; i++) { const a = game.t * 3 + i * 1.256; star4(c.x + Math.cos(a) * 34, c.y + Math.sin(a) * 27, 7, "#ffe066"); } }
+  if (game.phase === "gary" && game.gary.giggleT && game.t - game.gary.giggleT < 2.2) { const gp = garyPos(); bubble("Hee hee!", gp.x, gp.y - 140); }
+}
+function drawParticles() {
+  game.parts.forEach(q => {
+    ctx.save(); ctx.globalAlpha = clamp(q.life / q.max * 1.4, 0, 1);
+    if (q.kind === "confetti") { ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.fillStyle = q.col; ctx.fillRect(-5, -3, 10, 6); } else star4(q.x, q.y, 7, q.col);
+    ctx.restore();
+  });
+}
+function panel(x, y, w, h, col) { rr(x, y + 5, w, h, 18, INK, 0); rr(x, y, w, h, 18, "#fffaf0", 3); rr(x, y, w, 8, [18, 18, 0, 0], col, 0); }
+function clueText(t) {
+  const what = t.riddle ? KIND_CLUE[t.kind] : (t.count === 1 && /^\d+$/.test(t.maths) ? NOUN[t.kind][0] : NOUN[t.kind][1]);
+  const col = t.colourRiddle ? "" : t.color + " ";
+  const tail = t.colourRiddle ? `, ${COLOUR_CLUE[t.color]}` : "";
+  if (/^the number/.test(t.maths)) return `Find as many ${col}${t.riddle ? what : NOUN[t.kind][1]} as ${t.maths}${tail}.`;
+  return `Find ${t.maths} ${col}${what}${tail}.`;
+}
+function drawHUD() {
+  if (game.phase === "gary" || game.phase === "found") {
+    const b = 1 + Math.sin(game.t * 4) * .03; ctx.save(); ctx.translate(W / 2, 46); ctx.scale(b, b);
+    rr(-190, -32, 380, 64, 32, "#ffd23f", 3); txt(`Where's ${ND}?`, 0, 12, 34, INK, "center"); ctx.restore(); return;
+  }
+  if (game.mode !== "lala") {
+    const x = 14, y = 14, w = 470, rows = game.tasks.map(t => wrap(clueText(t), w - 120, 20));
+    const h = 54 + rows.reduce((a, r) => a + Math.max(48, r.length * 24 + 12), 0);
+    panel(x, y, w, h, "#7c3aed"); txt(`${NB}'s clues`, x + 18, y + 38, 25, "#6d28d9");
+    txt(`Place ${game.round} of ${ROUNDS}`, x + w - 18, y + 36, 17, "#8b7fa8", "right", 600);
+    let ry = y + 52;
+    game.tasks.forEach((t, i) => {
+      const lines = rows[i], rh = Math.max(48, lines.length * 24 + 12);
+      if (t.done || !t.riddle) drawItem(t.kind, t.color, x + 32, ry + rh / 2 + 18, .66, game.t, i);
+      else { circ(x + 32, ry + rh / 2, 17, "#ede6ff", 2.5); txt("?", x + 32, ry + rh / 2 + 8, 22, "#6d28d9", "center"); }
+      lines.forEach((ln, j) => txt(ln, x + 62, ry + 26 + j * 24, 20, t.done ? "#9a93a8" : INK, "left", 600));
+      if (t.done) { circ(x + w - 28, ry + rh / 2, 13, "#22c55e", 2.5); line(x + w - 34, ry + rh / 2, x + w - 29, ry + rh / 2 + 5, "#fff", 3.5); line(x + w - 29, ry + rh / 2 + 5, x + w - 21, ry + rh / 2 - 5, "#fff", 3.5); }
+      else for (let k = 0; k < t.got; k++) star4(x + w - 22 - k * 18, ry + rh / 2, 8, "#ffd23f");
+      ry += rh;
+    });
+  }
+  if (game.mode !== "bell") {
+    const n = game.lala.length, w = 22 + n * 94, x = W - 14 - w, y = 14, h = 158;
+    panel(x, y, w, h, "#db2777"); txt(NL, x + 18, y + 38, 25, "#be185d");
+    const next = game.lala.find(t => t.got < t.count);
+    game.lala.forEach((t, i) => {
+      const cx = x + 58 + i * 94, done = t.got >= t.count, isNext = t === next, pz = isNext ? 1 + Math.sin(game.t * 5) * .07 : 1;
+      rr(cx - 42, y + 50, 84, 96, 16, done ? "#dcfce7" : isNext ? "#ffe0ef" : "#fff", 2.5);
+      ctx.save(); if (done) ctx.globalAlpha = .45; drawItem(t.kind, t.color, cx, y + 116, 1.1 * pz, game.t, i); ctx.restore();
+      if (t.count > 1) for (let k = 0; k < t.count; k++) circ(cx - (t.count - 1) * 9 + k * 18, y + 134, 6.5, k < t.got ? "#ffd23f" : "#fff", 2);
+      if (done) { circ(cx + 28, y + 60, 13, "#22c55e", 2.5); line(cx + 22, y + 60, cx + 27, y + 65, "#fff", 3.5); line(cx + 27, y + 65, cx + 35, y + 55, "#fff", 3.5); }
+    });
+  }
+  const sx = game.mode === "lala" ? 560 : 640; rr(sx - 62, 16, 124, 48, 24, "#fff", 3); star4(sx - 30, 40, 15, "#ffd23f"); txt(String(game.stars), sx + 14, 52, 32, INK, "center");
+  if (game.t - game.introT < 9 && game.mode === "together") {
+    ctx.save(); ctx.globalAlpha = clamp(9 - (game.t - game.introT), 0, 1);
+    rr(W / 2 - 330, H - 56, 660, 42, 21, "rgba(255,255,255,.92)", 2.5);
+    txt(`${NB}: W A S D + Space (H for a hint)    ${NL}: arrows, just walk into it!`, W / 2, H - 27, 20, INK, "center", 600); ctx.restore();
+  }
+}
+function drawBanner() {
+  const b = game.banner; if (!b) return;
+  const k = b.t < .3 ? b.t / .3 : b.t > 2.2 ? Math.max(0, 1 - (b.t - 2.2) / .4) : 1, sc = .6 + .4 * Math.min(1, b.t / .3);
+  ctx.save(); ctx.globalAlpha = k; ctx.translate(W / 2, 330); ctx.scale(sc, sc);
+  ctx.font = "700 64px Fredoka, sans-serif"; const w = ctx.measureText(b.text).width + 70;
+  rr(-w / 2, -58, w, 92, 46, "#ff7ab6", 4); txt(b.text, 0, 8, 64, "#fff", "center", 700, 8); ctx.restore();
+}
+function family(y0, ks = 1.5, ky = 90) {
+  const t = game.t, j = n => Math.abs(Math.sin(t * 5 + n)) * 18;
+  KG.drawAdult(560, y0, 1.7, "dad", { wave: true, jump: j(0) * .5 });
+  KG.drawAdult(720, y0, 1.7, "mum", { wave: true, jump: j(1) * .5 });
+  const kids = game.mode === "together" ? [KG.mkPlayer("bell"), KG.mkPlayer("lala")] : [KG.mkPlayer(game.mode)];
+  kids.forEach((p, i) => { p.face = i ? -1 : 1; KG.drawKid(p, kids.length === 2 ? (i ? 860 : 420) : 860, y0 + ky, ks, { wave: true, jump: j(i + 2), tag: false }); });
+}
+function drawWin() {
+  ctx.save(); ctx.fillStyle = "rgba(255,250,240,.6)"; ctx.fillRect(0, 0, W, H); ctx.restore();
+  family(560);
+  txt(`You found ${ND}!`, W / 2, 120, 76, "#ffd23f", "center", 700, 10);
+  txt(`Hooray for ${names()}!`, W / 2, 182, 40, "#fff", "center", 700, 7);
+  rr(W / 2 - 80, 204, 160, 50, 25, "#fff", 3); star4(W / 2 - 40, 229, 16, "#ffd23f"); txt(String(game.stars), W / 2 + 18, 242, 34, INK, "center");
+  if (game.t - game.winT > 1.5) { ctx.save(); ctx.globalAlpha = .75 + .25 * Math.sin(game.t * 4); txt(`Press Space or Enter (or tap) to go to the ${THEMES[game.round % 3].name}`, W / 2, H - 20, 26, INK, "center", 600); ctx.restore(); }
+  drawParticles();
+}
+function drawEnd() {
+  ctx.save(); ctx.fillStyle = "rgba(255,250,240,.7)"; ctx.fillRect(0, 0, W, H); ctx.restore();
+  // trophy
+  ctx.save(); ctx.translate(W / 2, 262); const s = .72 + Math.sin(game.t * 3) * .02; ctx.scale(s, s);
+  rr(-50, 40, 100, 26, 8, "#b5651d"); rr(-16, 6, 32, 36, 4, "#f0a920");
+  ctx.beginPath(); ctx.moveTo(-60, -70); ctx.lineTo(60, -70); ctx.quadraticCurveTo(60, 10, 0, 12); ctx.quadraticCurveTo(-60, 10, -60, -70); ctx.closePath(); ctx.fillStyle = "#ffd23f"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.arc(-62, -40, 20, Math.PI * .5, Math.PI * 1.5); ctx.stroke(); ctx.beginPath(); ctx.arc(62, -40, 20, -Math.PI * .5, Math.PI * .5); ctx.stroke();
+  KG.star5(0, -36, 22, "#fff"); ctx.restore();
+  family(580, 1.3, 70);
+  txt("Adventure complete!", W / 2, 100, 72, "#ffd23f", "center", 700, 10);
+  txt(`Amazing teamwork, ${names()}!  ${game.stars} stars`, W / 2, 160, 36, "#fff", "center", 700, 7);
+  if (game.t - game.winT > 1.5) { ctx.save(); ctx.globalAlpha = .75 + .25 * Math.sin(game.t * 4); txt("Space or Enter to play again  ·  Esc for more Kids Games", W / 2, H - 16, 24, INK, "center", 600); ctx.restore(); }
+  drawParticles();
+}
+function drawTitle() {
+  drawWorld();
+  const a = KG.mkPlayer("bell"), b = KG.mkPlayer("lala"); b.face = -1;
+  KG.drawKid(a, 150, 655, 1.45, { wave: true, jump: Math.abs(Math.sin(game.t * 4)) * 8 });
+  KG.drawKid(b, 1130, 655, 1.45, { wave: true, jump: Math.abs(Math.sin(game.t * 4 + 1)) * 8 });
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  update(dt);
+  KG.begin(game.theme.sky[0], game.theme.ground, HORIZON);
+  if (game.screen === "title") drawTitle();
+  else if (game.screen === "play") { drawWorld(); drawPlayers(); drawHelpers(); drawParticles(); game.msgs.forEach(m => bubble(m.text, m.p.x, m.p.y - 150 * m.p.s)); drawHUD(); drawBanner(); }
+  else if (game.screen === "win") { drawWorld(); drawWin(); }
+  else { drawWorld(); drawEnd(); }
+  KG.end();
+  requestAnimationFrame(frame);
+}
+document.querySelectorAll("#menu button").forEach(b => b.onclick = () => { b.blur(); startGame(b.dataset.mode); });
+const qs = new URLSearchParams(location.search).get("mode");
+generateWorld(); game.items = [];
+(document.fonts && document.fonts.load ? document.fonts.load("700 20px Fredoka") : Promise.resolve()).catch(() => {}).then(() => { requestAnimationFrame(frame); if (["together", "bell", "lala"].includes(qs)) startGame(qs); });
+window.WG = { game, startGame, nextRound };
+</script>
+</body>
+</html>

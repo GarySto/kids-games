@@ -1,0 +1,16 @@
+{
+  "name": "Kids Games",
+  "short_name": "Kids Games",
+  "description": "Free, quietly educational games for children: Seek & Find, Times Table Pegs and Paint Splash. Made by Gary Stow for his daughters.",
+  "start_url": "./?source=app",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#8fd3fb",
+  "theme_color": "#7c3aed",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

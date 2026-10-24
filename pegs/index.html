@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="../icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Times Table Pegs: a maths game I made for my daughter — Gary Stow</title>
+<meta name="description" content="Answer times tables to earn balls, then bounce them off glowing pegs to clear the orange ones. A free browser game I built with AI for my eight-year-old.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Times Table Pegs: a maths game I made for my daughter">
+<meta property="og:description" content="Answer times tables to earn balls, then clear the glowing orange pegs.">
+<meta property="og:image" content="https://garystow.co.uk/assets/play-preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#7c3aed">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../shared.css">
+<style>
+html,body{background:#160f3a}
+.overlay{background:radial-gradient(ellipse at center,rgba(22,15,58,.75),rgba(22,15,58,.2) 75%)}
+.sub{background:#241a5c;color:#fff;border-color:#7f6bff;box-shadow:0 5px 0 #0c0826}
+.keys div{background:#241a5c;color:#fff;border-color:#7f6bff}
+.keys b{color:#ffcf33 !important}
+kbd{background:#3a2c8a;color:#fff;border-color:#7f6bff}
+.made{color:#cfc8ff}
+.tables{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;max-width:44rem;background:#241a5c;border:3px solid #7f6bff;border-radius:18px;padding:10px 14px;color:#fff}
+.tables b{color:#ffcf33;margin-right:4px}
+.tables button{font:inherit;font-weight:700;font-size:1.05rem;min-width:44px;padding:6px 10px;border-radius:12px;border:2px solid #7f6bff;background:#160f3a;color:#fff;cursor:pointer}
+.tables button[aria-pressed="true"]{background:#ffcf33;color:#2d2340;border-color:#ffcf33}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Times Table Pegs game"></canvas>
+<div id="menu" class="overlay">
+  <h1 class="title">Times Table Pegs <span data-name="bell" data-suffix="'s challenge">Bell's challenge</span></h1>
+  <p class="sub">Answer times tables and division to earn balls, from 1 × 1 all the way to 12 × 12. Fire them at the pegs and clear every orange one to win the level. Five levels to beat!</p>
+  <div class="tables" id="tables" aria-label="Which times tables?"><b>Which tables?</b><button type="button" data-t="all">All 1 to 12</button></div>
+  <div class="btns"><button class="go" id="start">Start</button></div>
+  <div class="keys">
+    <div><b>Maths</b>Type the answer with the number keys, then <kbd>Enter</kbd>. Three right in a row wins a bonus ball.</div>
+    <div><b>Shooting</b>Aim with <kbd>←</kbd><kbd>→</kbd> or the mouse, fire with <kbd>Space</kbd> or a click. Land in the bucket for a free ball.</div>
+  </div>
+  <p class="made" id="best"></p>
+</div>
+<div class="chrome left"><a href="../index.html">← Kids Games</a></div>
+<div class="chrome right"><button id="mute" type="button">Sound on</button><button id="fs" type="button">Full screen</button></div>
+
+<script src="../shared.js"></script>
+<script>KG.applyNames();</script>
+<script>
+"use strict";
+/* Times Table Pegs: Bell answers times tables (and later division) to earn balls,
+   then fires them at pegs. Clear all orange pegs to finish a level. Never a game over:
+   if the balls run out, answering more questions brings more. Five levels, then a trophy. */
+const { W, H, INK, rand, randInt, pick, shuffle, clamp, circ, ell, rr, poly, line, txt, star4, star5, sfx, speak } = KG;
+const ctx = KG.stage(document.getElementById("game"));
+KG.chrome();
+
+const BX0 = 330, BX1 = 1262, LX = 796, LY = 52, PEG_R = 12, BALL_R = 10, G = 760, SPEED = 700, MAX_BALLS = 9;
+// Every level uses the tables Bell picked (all 1 to 12 by default) with division mixed in.
+// Later levels ask more division and lean on the trickier facts (6, 7, 8, 9, 11, 12).
+const LEVELS = [
+  { title: "Warm up", div: .2, hard: .2, layout: "rows" },
+  { title: "Speeding up", div: .3, hard: .4, layout: "rings" },
+  { title: "Division mix", div: .45, hard: .45, layout: "arches" },
+  { title: "Tricky tables", div: .35, hard: .65, layout: "diamond" },
+  { title: "Champion round", div: .5, hard: .6, layout: "spiral" }
+];
+const ALL_TABLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], HARD = [6, 7, 8, 9, 11, 12];
+let TABLES = ALL_TABLES.slice();
+try { const t = JSON.parse(localStorage.getItem("kg_pegs_tables") || "null"); if (Array.isArray(t) && t.length && t.every(n => ALL_TABLES.includes(n))) TABLES = t; } catch (e) {}
+function tablesLabel() {
+  if (TABLES.length === 12) return "every table from 1 to 12, and division";
+  const t = TABLES.slice().sort((a, b) => a - b), last = t.pop();
+  return (t.length ? t.join(", ") + " and " + last : String(last)) + (t.length ? " times tables" : " times table") + ", and division";
+}
+const levelName = n => `${LEVELS[n].title}: ${tablesLabel()}`;
+const S = { screen: "title", level: 0, pegs: [], balls: 3, ball: null, aim: Math.PI / 2, score: 0, t: 0, q: null, input: "", streak: 0, retry: [], feedback: null, parts: [], pops: [],
+  bucket: { x: 800, dir: 1 }, msg: null, shotHits: [], stuckT: 0, qStart: 0, cheer: 0, lastQ: "", stars: [] };
+S.stars = Array.from({ length: 90 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(.6, 2), p: rand(0, 6) }));
+let best = 0; try { best = +localStorage.getItem("kg_pegs_best") || 0; } catch (e) {}
+document.getElementById("best").textContent = best ? `Best score on this computer: ${best}` : "Made by Gary for his girls.";
+
+// ---------- peg layouts ----------
+function layout(kind) {
+  const pts = [], cx = (BX0 + BX1) / 2;
+  if (kind === "rows") for (let r = 0; r < 7; r++) for (let c = 0; c < 12; c++) pts.push([BX0 + 60 + c * 72 + (r % 2) * 36, 170 + r * 62]);
+  if (kind === "rings") { [[cx - 230, 330], [cx + 230, 330], [cx, 470]].forEach(([x, y]) => { for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; pts.push([x + Math.cos(a) * 105, y + Math.sin(a) * 105]); } for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; pts.push([x + Math.cos(a) * 48, y + Math.sin(a) * 48]); } });
+    for (let c = 0; c < 11; c++) pts.push([BX0 + 70 + c * 80, 175]); }
+  if (kind === "arches") for (let k = 0; k < 4; k++) for (let i = 0; i <= 16; i++) { const a = Math.PI + i / 16 * Math.PI; pts.push([cx + Math.cos(a) * (150 + k * 85), 600 + Math.sin(a) * (110 + k * 85)]); }
+  if (kind === "diamond") for (let r = 0; r < 13; r++) { const n = 7 - Math.abs(6 - r); for (let c = 0; c < n * 2 - 1; c++) pts.push([cx + (c - (n - 1)) * 54, 165 + r * 36]); }
+  if (kind === "spiral") { for (let i = 0; i < 70; i++) { const a = i * .42, rad = 30 + i * 3.6; pts.push([cx + Math.cos(a) * rad * 1.35, 390 + Math.sin(a) * rad * .95]); } }
+  return pts.filter(([x, y]) => x > BX0 + 22 && x < BX1 - 22 && y > 140 && y < 640 && Math.hypot(x - LX, y - LY) > 110 && reachable(x, y))
+    .filter((p, i, a) => a.findIndex(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < PEG_R * 2.6) === i);
+}
+// every peg must be hittable straight from the cannon: trace every aim the cannon allows (bouncing off the side walls)
+// and keep only pegs the ball can actually touch
+const REACH = (() => {
+  const cells = new Set(), C = 6, dt = 1 / 240;
+  for (let a = .12; a <= Math.PI - .12; a += .006) {
+    const b = { x: LX + Math.cos(a) * 46, y: LY + Math.sin(a) * 46, vx: Math.cos(a) * SPEED, vy: Math.sin(a) * SPEED };
+    for (let i = 0; i < 900 && b.y < H; i++) {
+      b.vy += G * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < BX0 + BALL_R) { b.x = BX0 + BALL_R; b.vx = Math.abs(b.vx) * .9; }
+      if (b.x > BX1 - BALL_R) { b.x = BX1 - BALL_R; b.vx = -Math.abs(b.vx) * .9; }
+      cells.add(Math.round(b.x / C) + "," + Math.round(b.y / C));
+    }
+  }
+  return { cells, C };
+})();
+function reachable(x, y) {
+  const { cells, C } = REACH, r = Math.ceil((PEG_R + BALL_R - 7) / C), cx = Math.round(x / C), cy = Math.round(y / C);
+  for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) if (i * i + j * j <= r * r && cells.has((cx + i) + "," + (cy + j))) return true;
+  return false;
+}
+function startLevel(n) {
+  S.level = n; const L = LEVELS[n], pts = shuffle(layout(L.layout));
+  const nOrange = Math.min(14 + n * 2, Math.floor(pts.length * .3));
+  S.pegs = pts.map(([x, y], i) => ({ x, y, type: i < nOrange ? "orange" : i < nOrange + 2 ? "green" : "blue", lit: false, gone: false, pop: 0 }));
+  S.ball = null; S.balls = Math.max(S.balls, 3); S.retry = []; S.screen = "play"; S.msg = { text: `Level ${n + 1}: ${L.title}`, t: 0, dur: 3 };
+  newQuestion(); speak(`Level ${n + 1}. ${L.title}!`);
+}
+
+// ---------- questions ----------
+function newQuestion() {
+  const L = LEVELS[S.level];
+  let q;
+  if (S.retry.length && Math.random() < .5) q = S.retry.shift();
+  else for (let g = 0; g < 20; g++) {
+    const hardPool = TABLES.filter(n => HARD.includes(n));
+    const a = hardPool.length && Math.random() < L.hard ? pick(hardPool) : pick(TABLES), b = randInt(1, 12);
+    q = Math.random() < L.div ? { text: `${a * b} ÷ ${a}`, ans: b } : Math.random() < .5 ? { text: `${a} × ${b}`, ans: a * b } : { text: `${b} × ${a}`, ans: a * b };
+    if (q.text !== S.lastQ) break;
+  }
+  S.q = q; S.lastQ = q.text; S.input = ""; S.qStart = S.t;
+}
+function submit() {
+  if (S.screen !== "play" || !S.input || S.feedback && S.feedback.wait) return;
+  const ok = +S.input === S.q.ans, fast = S.t - S.qStart < 4;
+  if (ok) {
+    S.streak++; S.score += fast ? 75 : 50; addBalls(1);
+    let text = fast ? "Lightning fast!" : pick(["Correct!", "Brilliant!", "Spot on!", "Yes!"]);
+    if (S.streak % 3 === 0) { addBalls(1); text = `${S.streak} in a row! Bonus ball!`; sfx.done(); } else sfx.pick();
+    S.feedback = { ok: true, text, t: S.t }; S.cheer = S.t; newQuestion();
+  } else {
+    S.streak = 0; S.retry.push(S.q); sfx.boop();
+    S.feedback = { ok: false, text: `${S.q.text} = ${S.q.ans}`, t: S.t, wait: true };
+    setTimeout(() => { S.feedback.wait = false; newQuestion(); }, 2200);
+  }
+}
+function addBalls(n) { S.balls = Math.min(MAX_BALLS, S.balls + n); }
+
+// ---------- shooting & physics ----------
+function fire() {
+  if (S.screen !== "play" || S.ball || S.balls <= 0) return;
+  S.balls--; S.shotHits = []; S.stuckT = 0;
+  S.ball = { x: LX + Math.cos(S.aim) * 46, y: LY + Math.sin(S.aim) * 46, vx: Math.cos(S.aim) * SPEED, vy: Math.sin(S.aim) * SPEED };
+  KG.tone(220, 0, .15, "sawtooth", .05);
+}
+function stepBall(b, dt, live) {
+  b.vy += G * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+  if (b.x < BX0 + BALL_R) { b.x = BX0 + BALL_R; b.vx = Math.abs(b.vx) * .9; }
+  if (b.x > BX1 - BALL_R) { b.x = BX1 - BALL_R; b.vx = -Math.abs(b.vx) * .9; }
+  if (b.y < BALL_R) { b.y = BALL_R; b.vy = Math.abs(b.vy); }
+  for (const p of S.pegs) {
+    if (p.gone) continue;
+    const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy), m = BALL_R + PEG_R;
+    if (d < m && d > 0) {
+      const nx = dx / d, ny = dy / d; b.x = p.x + nx * m; b.y = p.y + ny * m;
+      const vn = b.vx * nx + b.vy * ny; if (vn < 0) { b.vx -= 1.78 * vn * nx; b.vy -= 1.78 * vn * ny; }
+      if (!live) return true;
+      if (!p.lit) { p.lit = true; S.shotHits.push(p); KG.tone(500 + S.shotHits.length * 45, 0, .12, "sine", .1);
+        if (p.type === "green") { addBalls(1); popText("+1 ball!", p.x, p.y - 20, "#3ee07a"); } }
+    }
+  }
+  return false;
+}
+function endShot() {
+  const hits = S.shotHits, o = hits.filter(p => p.type === "orange").length, pts = hits.reduce((a, p) => a + (p.type === "orange" ? 100 : p.type === "green" ? 50 : 10), 0) * (hits.length >= 8 ? 2 : 1);
+  S.score += pts;
+  hits.forEach((p, i) => setTimeout(() => { p.gone = true; burst(p.x, p.y, 8, p.type === "orange" ? "#ffb347" : p.type === "green" ? "#3ee07a" : "#7fdcff"); }, i * 45));
+  if (hits.length >= 8) { popText(`Super shot! Double points!`, 796, 300, "#ffcf33"); sfx.done(); S.cheer = S.t; }
+  else if (o >= 3) { popText(`${o} orange pegs!`, 796, 300, "#ffb347"); S.cheer = S.t; }
+  S.ball = null;
+  setTimeout(() => {
+    if (S.pegs.every(p => p.type !== "orange" || p.gone)) {
+      sfx.win(); S.score += S.balls * 100;
+      if (S.level >= LEVELS.length - 1) { S.screen = "end"; S.endT = S.t; saveBest(); speak(`You did it, ${KG.name("bell")}! You are the Times Table Pegs champion!`); KG.track("game_complete", { game_name: "pegs" }); }
+      else { S.screen = "levelup"; S.endT = S.t; speak(`Level ${S.level + 1} complete! Brilliant, ${KG.name("bell")}!`); }
+    }
+  }, hits.length * 45 + 300);
+}
+function saveBest() { if (S.score > best) { best = S.score; try { localStorage.setItem("kg_pegs_best", best); } catch (e) {} } }
+function burst(x, y, n, col) { for (let i = 0; i < n; i++) { const a = rand(0, 6.3), v = rand(60, 220); S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(.4, .9), col }); } }
+function popText(text, x, y, col) { S.pops.push({ text, x, y, col, t: 0 }); }
+
+// ---------- input ----------
+const keys = new Set();
+addEventListener("keydown", e => {
+  if (["Space", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Backspace", "Enter"].includes(e.code) && !e.target.closest("button,a")) e.preventDefault();
+  keys.add(e.code);
+  if (S.screen === "title") { if ((e.code === "Space" || e.code === "Enter") && !e.target.closest("button")) begin(); return; }
+  if (S.screen === "levelup" && S.t - S.endT > 1.5 && (e.code === "Space" || e.code === "Enter")) return startLevel(S.level + 1);
+  if (S.screen === "end" && S.t - S.endT > 1.5 && (e.code === "Space" || e.code === "Enter")) return begin();
+  if (S.screen !== "play") return;
+  const d = e.key;
+  if (/^[0-9]$/.test(d)) { if (S.input.length < 3) S.input += d; return; }
+  if (e.code === "Backspace") S.input = S.input.slice(0, -1);
+  if (e.code === "Enter" || e.code === "NumpadEnter") submit();
+  if (e.code === "Space") fire();
+});
+addEventListener("keyup", e => keys.delete(e.code));
+const PAD = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["⌫", "0", "OK"]], PADX = 40, PADY = 362, PADW = 76, PADH = 58;
+const cvEl = document.getElementById("game");
+cvEl.addEventListener("pointermove", e => { const w = KG.toWorld(e); if (w.x > BX0 && w.y > LY + 10) S.aim = clamp(Math.atan2(w.y - LY, w.x - LX), .12, Math.PI - .12); });
+cvEl.addEventListener("pointerdown", e => {
+  const w = KG.toWorld(e);
+  if (S.screen === "levelup" && S.t - S.endT > 1.5) return startLevel(S.level + 1);
+  if (S.screen === "end" && S.t - S.endT > 1.5) return begin();
+  if (S.screen !== "play") return;
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+    const x = PADX + c * (PADW + 10), y = PADY + r * (PADH + 10);
+    if (w.x > x && w.x < x + PADW && w.y > y && w.y < y + PADH) { const k = PAD[r][c]; if (k === "OK") submit(); else if (k === "⌫") S.input = S.input.slice(0, -1); else if (S.input.length < 3) S.input += k; return; }
+  }
+  if (w.x > BX0) { if (w.y > LY + 10) S.aim = clamp(Math.atan2(w.y - LY, w.x - LX), .12, Math.PI - .12); fire(); }
+});
+function begin() { KG.unlockAudio(); document.getElementById("menu").hidden = true; S.score = 0; S.balls = 3; S.streak = 0; KG.track("game_start", { game_name: "pegs" }); startLevel(0); }
+document.getElementById("start").onclick = e => { e.currentTarget.blur(); begin(); };
+// pick the tables to practise: All, or tap individual tables on and off
+(function tablePicker() {
+  const box = document.getElementById("tables");
+  ALL_TABLES.forEach(n => { const b = document.createElement("button"); b.type = "button"; b.dataset.t = n; b.textContent = n + "×"; box.appendChild(b); });
+  const save = () => { try { localStorage.setItem("kg_pegs_tables", JSON.stringify(TABLES)); } catch (e) {} };
+  const paint = () => box.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === "all" ? TABLES.length === 12 : TABLES.length < 12 && TABLES.includes(+b.dataset.t)));
+  box.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return; b.blur();
+    if (b.dataset.t === "all") TABLES = ALL_TABLES.slice();
+    else { const n = +b.dataset.t; if (TABLES.length === 12) TABLES = [n]; else if (TABLES.includes(n)) { TABLES = TABLES.filter(x => x !== n); if (!TABLES.length) TABLES = ALL_TABLES.slice(); } else TABLES.push(n); }
+    save(); paint();
+  });
+  paint();
+})();
+
+// ---------- update ----------
+function update(dt) {
+  S.t += dt;
+  S.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt; }); S.parts = S.parts.filter(p => p.life > 0);
+  S.pops.forEach(p => { p.t += dt; p.y -= 30 * dt; }); S.pops = S.pops.filter(p => p.t < 1.8);
+  if (S.msg) { S.msg.t += dt; if (S.msg.t > S.msg.dur) S.msg = null; }
+  if (S.screen !== "play") return;
+  if (keys.has("ArrowLeft") || keys.has("KeyA")) S.aim = clamp(S.aim + 1.5 * dt, .12, Math.PI - .12);
+  if (keys.has("ArrowRight") || keys.has("KeyD")) S.aim = clamp(S.aim - 1.5 * dt, .12, Math.PI - .12);
+  const bk = S.bucket; bk.x += bk.dir * 190 * dt; if (bk.x > BX1 - 70) bk.dir = -1; if (bk.x < BX0 + 70) bk.dir = 1;
+  const b = S.ball;
+  if (b) {
+    for (let i = 0; i < 6; i++) stepBall(b, dt / 6, true);
+    if (Math.hypot(b.vx, b.vy) < 45) S.stuckT += dt; else S.stuckT = 0;
+    if (S.stuckT > 1.2) { S.shotHits.forEach(p => { if (Math.hypot(p.x - b.x, p.y - b.y) < 40) p.gone = true; }); b.vy += 200; S.stuckT = 0; }
+    if (b.y > H - 34 && b.y < H - 14 && Math.abs(b.x - bk.x) < 58) { addBalls(1); popText("Free ball!", bk.x, H - 70, "#ff7ad9"); sfx.done(); endShot(); }
+    else if (b.y > H + 20) endShot();
+  }
+}
+
+// ---------- drawing ----------
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#160f3a"); g.addColorStop(1, "#33207a"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  S.stars.forEach(s => { ctx.globalAlpha = .4 + .6 * Math.abs(Math.sin(S.t * 1.5 + s.p)); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); }); ctx.globalAlpha = 1;
+  rr(BX0 - 6, -10, BX1 - BX0 + 12, H + 20, 18, "rgba(255,255,255,.04)", 0);
+  ctx.strokeStyle = "#7f6bff"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(BX0 - 4, 0); ctx.lineTo(BX0 - 4, H); ctx.moveTo(BX1 + 4, 0); ctx.lineTo(BX1 + 4, H); ctx.stroke();
+}
+function glow(x, y, r, col, a = .35) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.globalAlpha = a; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+const PEG_COL = { blue: "#4cc9ff", orange: "#ff9f1c", green: "#3ee07a" };
+function drawPegs() {
+  S.pegs.forEach(p => {
+    if (p.gone) return;
+    const col = PEG_COL[p.type];
+    glow(p.x, p.y, p.lit ? 34 : 24, col, p.lit ? .8 : .35);
+    circ(p.x, p.y, PEG_R, p.lit ? "#ffffff" : col, 2.5); circ(p.x - 4, p.y - 4, 3.5, "rgba(255,255,255,.7)", 0);
+    if (p.type === "green" && !p.lit) txt("+", p.x, p.y + 6, 16, "#0b3d1f", "center");
+  });
+}
+function drawLauncher() {
+  // aiming dots (where the ball goes before it hits anything)
+  if (!S.ball && S.balls > 0) {
+    const b = { x: LX + Math.cos(S.aim) * 46, y: LY + Math.sin(S.aim) * 46, vx: Math.cos(S.aim) * SPEED, vy: Math.sin(S.aim) * SPEED };
+    for (let i = 0; i < 42; i++) { const hit = stepBall(b, 1 / 60, false); if (i % 2 === 0) { ctx.globalAlpha = 1 - i / 46; circ(b.x, b.y, 3.5, "#ffffff", 0); } if (hit) break; }
+    ctx.globalAlpha = 1;
+  }
+  ctx.save(); ctx.translate(LX, LY); ctx.rotate(S.aim - Math.PI / 2);
+  rr(-14, 0, 28, 52, 8, "#a98bff", 3); rr(-17, 40, 34, 14, 6, "#ffcf33", 3); ctx.restore();
+  circ(LX, LY, 30, "#7c3aed", 3); KG.star5(LX, LY, 16, "#ffcf33", 2);
+}
+function drawBall() { const b = S.ball; if (!b) return; glow(b.x, b.y, 26, "#ffffff", .5); circ(b.x, b.y, BALL_R, "#e8ecff", 2.5); circ(b.x - 3, b.y - 3, 3, "#fff", 0); }
+function drawBucket() {
+  const x = S.bucket.x, y = H - 26; glow(x, y, 70, "#ff7ad9", .3);
+  poly([[x - 58, y - 12], [x + 58, y - 12], [x + 44, y + 22], [x - 44, y + 22]], "#ff7ad9"); line(x - 54, y - 4, x + 54, y - 4, "#ffd1f2", 3);
+  txt("FREE BALL", x, y + 14, 14, "#4a0b3d", "center");
+}
+function drawPanel() {
+  rr(14, 14, 300, H - 28, 20, "#241a5c", 3);
+  txt(`Level ${S.level + 1} of 5`, 34, 52, 24, "#ffcf33");
+  KG.wrap(levelName(S.level), 260, 16).forEach((l, i) => txt(l, 34, 76 + i * 20, 16, "#cfc8ff", "left", 600));
+  // the question card
+  const fb = S.feedback && S.t - S.feedback.t < 2.2 ? S.feedback : null;
+  rr(30, 112, 268, 168, 16, fb && !fb.ok ? "#4a2a6a" : "#fff", 3);
+  if (fb && !fb.ok) { txt("Nearly! It's", 164, 150, 22, "#ffd1f2", "center", 600); txt(fb.text, 164, 205, 44, "#ffcf33", "center"); txt("Try the next one", 164, 250, 18, "#cfc8ff", "center", 600); }
+  else {
+    txt(S.q ? S.q.text + " =" : "", 164, 178, 50, INK, "center");
+    rr(84, 196, 160, 64, 14, "#f1ecff", 3);
+    const caret = Math.floor(S.t * 2) % 2 ? "|" : "";
+    txt(S.input + caret, 164, 244, 44, "#6d28d9", "center");
+  }
+  if (fb && fb.ok) txt(fb.text, 164, 312, 22, "#3ee07a", "center");
+  else if (!fb) txt(S.balls === 0 && !S.ball ? "Answer to earn a ball!" : "Each right answer = 1 ball", 164, 312, 18, S.balls === 0 && !S.ball ? "#ffcf33" : "#cfc8ff", "center", 600);
+  // streak lights
+  for (let i = 0; i < 3; i++) circ(124 + i * 40, 338, 10, i < S.streak % 3 ? "#ffcf33" : "#3a2c8a", 2.5);
+  // number pad
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+    const x = PADX + c * (PADW + 10), y = PADY + r * (PADH + 10), k = PAD[r][c];
+    rr(x, y, PADW, PADH, 12, k === "OK" ? "#3ee07a" : k === "⌫" ? "#ff9fb0" : "#ffffff", 3); txt(k, x + PADW / 2, y + 40, 28, INK, "center");
+  }
+  txt(`Score ${S.score}`, 34, 664, 26, "#fff");
+  txt(best ? `Best ${best}` : "", 290, 664, 18, "#cfc8ff", "right", 600);
+}
+function drawTop() {
+  // balls in hand next to the launcher
+  rr(LX + 50, 18, 260, 40, 20, "rgba(36,26,92,.9)", 2.5);
+  txt("Balls", LX + 64, 45, 17, "#fff", "left", 600);
+  for (let i = 0; i < MAX_BALLS; i++) circ(LX + 120 + i * 20, 38, 7, i < S.balls ? "#e8ecff" : "#3a2c8a", 2);
+  const left = S.pegs.filter(p => p.type === "orange" && !p.gone).length;
+  rr(LX - 260, 18, 190, 40, 20, "rgba(36,26,92,.9)", 2.5); circ(LX - 238, 38, 9, "#ff9f1c", 2); txt(`${left} orange left`, LX - 222, 45, 18, "#fff", "left", 600);
+}
+function drawBell() {
+  const p = KG.mkPlayer("bell"); p.face = 1; const cheer = S.t - S.cheer < 1.4;
+  KG.drawKid(p, BX0 + 48, 136, .78, { wave: cheer, jump: cheer ? Math.abs(Math.sin(S.t * 9)) * 14 : 0, tag: false });
+}
+function drawFX() {
+  S.parts.forEach(p => { ctx.globalAlpha = clamp(p.life * 2, 0, 1); star4(p.x, p.y, 6, p.col); }); ctx.globalAlpha = 1;
+  S.pops.forEach(p => { ctx.globalAlpha = clamp(2 - p.t, 0, 1); txt(p.text, p.x, p.y, 30, p.col, "center", 700, 6); }); ctx.globalAlpha = 1;
+  if (S.msg) { const k = Math.min(1, S.msg.t * 3, S.msg.dur - S.msg.t); ctx.globalAlpha = clamp(k, 0, 1); rr(BX0 + 160, 300, BX1 - BX0 - 320, 90, 45, "#7c3aed", 4); txt(S.msg.text, (BX0 + BX1) / 2, 358, 32, "#fff", "center", 700, 6); ctx.globalAlpha = 1; }
+}
+function drawOverlay(title, sub, foot) {
+  ctx.fillStyle = "rgba(10,6,30,.7)"; ctx.fillRect(0, 0, W, H);
+  txt(title, W / 2, 200, 72, "#ffcf33", "center", 700, 10); txt(sub, W / 2, 262, 32, "#fff", "center", 700, 6);
+  const p = KG.mkPlayer("bell"); KG.drawKid(p, W / 2, 640, 1.75, { wave: true, jump: Math.abs(Math.sin(S.t * 5)) * 18, tag: false });
+  for (let i = 0; i < 5; i++) star5(W / 2 - 200 + i * 100, 316 + Math.sin(S.t * 3 + i) * 6, 26, i <= S.level ? "#ffcf33" : "#3a2c8a");
+  if (S.t - S.endT > 1.5) { ctx.globalAlpha = .75 + .25 * Math.sin(S.t * 4); txt(foot, W / 2, H - 30, 26, "#fff", "center", 600); ctx.globalAlpha = 1; }
+  drawFX();
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt);
+  KG.begin(null, "#160f3a", 0);
+  drawBackground();
+  if (S.screen !== "title") { drawPegs(); drawBucket(); drawLauncher(); drawBall(); drawBell(); drawTop(); drawPanel(); drawFX(); }
+  if (S.screen === "levelup") drawOverlay(`Level ${S.level + 1} complete!`, `Score ${S.score}`, "Space, Enter or tap for the next level");
+  if (S.screen === "end") drawOverlay("Times Table Champion!", `Final score ${S.score}${S.score >= best ? "  (new best!)" : ""}`, "Space or Enter to play again");
+  KG.end(); requestAnimationFrame(frame);
+}
+(document.fonts && document.fonts.load ? document.fonts.load("700 20px Fredoka") : Promise.resolve()).catch(() => {}).then(() => requestAnimationFrame(frame));
+window.PG = { S, startLevel, submit, fire, begin };
+</script>
+</body>
+</html>

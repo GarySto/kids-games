@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kids Games: free games I made for my daughters — Gary Stow</title>
+<meta name="description" content="Three free browser games I built with AI for my two daughters, aged three and eight. A co-op seek and find, a times tables peg game and a painting game. Quietly educational, no adverts, nobody loses.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kids Games: free games I made for my daughters">
+<meta property="og:description" content="A co-op seek and find, a times tables peg game and a painting game, built with AI for my girls.">
+<meta property="og:image" content="https://garystow.co.uk/assets/play-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"CollectionPage","name":"Kids Games","url":"https://garystow.co.uk/kids-games/","description":"Free browser games Gary Stow built with AI for his two daughters.","author":{"@type":"Person","name":"Gary Stow","url":"https://garystow.co.uk/"},
+"hasPart":[
+{"@type":"VideoGame","name":"Seek and Find","url":"https://garystow.co.uk/kids-games/seek/","playMode":["CoOp","SinglePlayer"],"gamePlatform":"Web browser","isAccessibleForFree":true},
+{"@type":"VideoGame","name":"Times Table Pegs","url":"https://garystow.co.uk/kids-games/pegs/","playMode":"SinglePlayer","gamePlatform":"Web browser","isAccessibleForFree":true},
+{"@type":"VideoGame","name":"Paint Splash","url":"https://garystow.co.uk/kids-games/paint/","playMode":["SinglePlayer","CoOp"],"gamePlatform":"Web browser","isAccessibleForFree":true}]}
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#7c3aed">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap">
+<style>
+:root{--ink:#2d2340;--bell:#7c3aed;--lala:#db2777;--sun:#ffcf33;--cream:#fffaf0;--sky:#bfe8ff;--grass:#8fdc6a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Fredoka","Trebuchet MS",system-ui,sans-serif;color:var(--ink);background:linear-gradient(#8fd3fb 0,#d4f1ff 360px,#a6e08a 360px,#8fdc6a 100%);min-height:100vh}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:16px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.pill{font-weight:600;font-size:.95rem;padding:7px 14px;border-radius:999px;border:2px solid var(--ink);background:rgba(255,255,255,.88);text-decoration:none;cursor:pointer;font-family:inherit;color:var(--ink)}
+header{text-align:center;padding:28px 0 18px}
+h1{font-size:clamp(2.8rem,9vw,5.4rem);line-height:1;color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink)}
+.tag{display:inline-block;margin-top:16px;font-size:clamp(1.05rem,2.6vw,1.35rem);font-weight:600;background:var(--cream);border:3px solid var(--ink);border-radius:18px;padding:8px 18px;box-shadow:0 5px 0 var(--ink)}
+.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:22px}
+.card{display:flex;flex-direction:column;background:#fff;border:3px solid var(--ink);border-radius:24px;overflow:hidden;box-shadow:0 7px 0 var(--ink);text-decoration:none;transition:transform .1s}
+.card:hover,.card:focus-visible{transform:translateY(-4px);outline:none}
+.card canvas{width:100%;height:auto;display:block;border-bottom:3px solid var(--ink);aspect-ratio:36/22}
+.card .body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h2{font-size:1.7rem;line-height:1.1}
+.card p{font-size:1.05rem;line-height:1.35}
+.who{display:flex;gap:6px;flex-wrap:wrap}
+.who span{font-size:.85rem;font-weight:700;color:#fff;padding:3px 10px;border-radius:999px}
+.who .b{background:var(--bell)}.who .l{background:var(--lala)}
+.go{margin-top:auto;align-self:flex-start;font-weight:700;font-size:1.2rem;padding:10px 22px;border-radius:999px;border:3px solid var(--ink);background:var(--sun);box-shadow:0 4px 0 var(--ink)}
+.panel{background:var(--cream);border:3px solid var(--ink);border-radius:24px;box-shadow:0 7px 0 var(--ink);padding:20px 22px;margin-top:30px}
+.panel h2{font-size:1.8rem;margin-bottom:6px}
+.outfits{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.outfit{background:#fff;border:3px solid var(--ink);border-radius:18px;padding:6px 6px 10px;cursor:pointer;font:inherit;font-weight:700;font-size:1.1rem;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:4px}
+.outfit canvas{width:104px;height:130px}
+.outfit[aria-pressed="true"]{background:#ede6ff;box-shadow:0 0 0 4px var(--bell)}
+#outfits-lala .outfit[aria-pressed="true"]{background:#ffe3f0;box-shadow:0 0 0 4px var(--lala)}
+.who-h{font-size:1.35rem;margin-top:14px}
+.grown{font-family:"Trebuchet MS",system-ui,sans-serif}
+.grown h2{font-family:"Fredoka",sans-serif}
+.grown p,.grown li{font-size:1.02rem;line-height:1.55;margin-top:8px}
+.grown ul{padding-left:1.2rem}
+.fam-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:14px}
+.fam{background:#fff;border:3px solid var(--ink);border-radius:18px;padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px}
+.fam h3{font-size:1.25rem;line-height:1.1}
+.fam .role{font-size:.9rem;color:#5b5370;margin-top:-4px}
+.fam canvas{width:130px;height:160px;align-self:center}
+.fam label{font-weight:600;font-size:.95rem;display:flex;flex-direction:column;gap:4px}
+.fam input[type=text]{font:inherit;font-size:1.05rem;padding:7px 10px;border:2px solid var(--ink);border-radius:10px;width:100%}
+.row{display:flex;flex-direction:column;gap:4px}
+.row>span{font-weight:600;font-size:.95rem}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--ink)}
+.chip{font:inherit;font-weight:600;font-size:.88rem;padding:4px 10px;border-radius:999px;border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--sun)}
+.capl{width:44px!important;text-align:center;text-transform:uppercase}
+.fam-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.btn{font:inherit;font-weight:700;font-size:1.05rem;padding:9px 18px;border-radius:999px;border:3px solid var(--ink);background:#fff;box-shadow:0 4px 0 var(--ink);cursor:pointer;color:var(--ink)}
+.btn.sun{background:var(--sun)}
+.note{font-size:.95rem;color:#4b4560}
+.steps{counter-reset:s;list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.steps li{counter-increment:s;position:relative;padding-left:46px;font-size:1.05rem;line-height:1.45}
+.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;width:34px;height:34px;border-radius:50%;background:var(--sun);border:2px solid var(--ink);font-weight:700;display:flex;align-items:center;justify-content:center}
+.howto{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px}
+.howto div{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:10px 12px;font-size:.98rem;line-height:1.4}
+.howto .h{display:block;font-size:1.05rem;font-weight:700;margin-bottom:2px}
+#installed{font-weight:700;color:#16803c}
+footer{text-align:center;padding:30px 0 40px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="pill" href="https://garystow.co.uk/work/#play">← garystow.co.uk</a>
+    <button class="pill" id="mute" type="button">Sound on</button>
+  </div>
+  <header>
+    <h1>Kids Games</h1>
+    <p class="tag">Made by Daddy for Bell and La La</p>
+  </header>
+
+  <section class="games" aria-label="Games">
+    <a class="card" href="seek/index.html" data-game="seek">
+      <canvas id="t-seek" width="720" height="440" aria-hidden="true"></canvas>
+      <div class="body">
+        <div class="who"><span class="b" data-name="bell">Bell</span><span class="l" data-name="lala">La La</span><span class="b" style="background:#22a06b">Together</span></div>
+        <h2>Seek &amp; Find</h2>
+        <p>Read the clues, find everything on your lists, then find Daddy hiding somewhere. Three places to explore.</p>
+        <span class="go">Play</span>
+      </div>
+    </a>
+    <a class="card" href="pegs/index.html" data-game="pegs">
+      <canvas id="t-pegs" width="720" height="440" aria-hidden="true"></canvas>
+      <div class="body">
+        <div class="who"><span class="b" data-name="bell">Bell</span></div>
+        <h2>Times Table Pegs</h2>
+        <p>Answer times tables to earn balls, then bounce them off glowing pegs. Clear the orange ones to beat all five levels.</p>
+        <span class="go">Play</span>
+      </div>
+    </a>
+    <a class="card" href="paint/index.html" data-game="paint">
+      <canvas id="t-paint" width="720" height="440" aria-hidden="true"></canvas>
+      <div class="body">
+        <div class="who"><span class="l" data-name="lala">La La</span><span class="b" data-name="bell" data-suffix=" can join">Bell can join</span></div>
+        <h2>Paint Splash</h2>
+        <p>Run through the paint buckets and paint the floor with your feet. Stand in the bubble bath for a moment to wipe it clean.</p>
+        <span class="go">Play</span>
+      </div>
+    </a>
+  </section>
+
+  <section class="panel">
+    <h2>Dress up</h2>
+    <p>Pick your outfit. Everyone can wear anything, and it works in every game.</p>
+    <h3 class="who-h" style="color:var(--bell)" data-name="bell">Bell</h3>
+    <div class="outfits" id="outfits-bell"></div>
+    <h3 class="who-h" style="color:var(--lala)" data-name="lala">La La</h3>
+    <div class="outfits" id="outfits-lala"></div>
+  </section>
+
+  <section class="panel" id="family" data-clarity-mask="true">
+    <h2>Make it yours</h2>
+    <p>Change the names and looks so your children see themselves in every game. Changes save straight away, and only on this device. Nothing you type here is ever sent anywhere.</p>
+    <div class="fam-grid" id="fam-grid"></div>
+    <div class="fam-actions"><button class="btn" id="fam-reset" type="button">Back to Bell and La La</button><span class="note" id="fam-msg"></span></div>
+  </section>
+
+  <section class="panel" id="setup">
+    <h2>Set it up at home</h2>
+    <p>No app store, no accounts and no GitHub needed. Your web browser can save these games onto the computer or tablet your children use. They get their own icon, open in their own window without the address bar, and keep working when the internet is off. It's still the same free web page underneath, just easier to find, and you can remove it like any other app.</p>
+    <ol class="steps">
+      <li>Open <b>garystow.co.uk/kids-games</b> on that computer or tablet.</li>
+      <li>Scroll up to <b>Make it yours</b>. Type your children's names and pick their skin tone, hair and eyes, then do the same for the grown-ups.</li>
+      <li>Press the yellow <b>Add to this computer</b> button below. If you can't see it, follow the steps for your device underneath.</li>
+      <li>Open <b>Kids Games</b> from your Start menu, desktop or home screen, just like any other app.</li>
+      <li>That's it. After the first time it works without the internet, and you can come back to <b>Make it yours</b> whenever you like.</li>
+    </ol>
+    <div class="fam-actions"><button class="btn sun" id="install" type="button" hidden>Add to this computer</button><span id="installed" hidden>Added to this device. Open Kids Games from your apps.</span></div>
+    <div class="howto">
+      <div><span class="h">Windows (Edge)</span>Click the three dots at the top right, then <b>Apps</b>, then <b>Install this site as an app</b>.</div>
+      <div><span class="h">Windows or Mac (Chrome)</span>Click the little install icon at the right of the address bar, or the three dots, then <b>Cast, save and share</b>, then <b>Install page as app</b>.</div>
+      <div><span class="h">iPad or iPhone (Safari)</span>Tap the share button (a square with an arrow), then <b>Add to Home Screen</b>.</div>
+      <div><span class="h">Android tablet (Chrome)</span>Tap the three dots, then <b>Add to home screen</b> or <b>Install app</b>.</div>
+    </div>
+  </section>
+
+  <section class="panel grown">
+    <h2>For grown-ups</h2>
+    <p>I built these for my two daughters, who are three and eight. They loved hunting for me in my <a href="https://garystow.co.uk/village/">AI village</a>, but finding games they could enjoy at the same time was surprisingly hard when one is learning her colours and the other is racing through her times tables. So I built some with Claude, and slipped a bit of learning into each one.</p>
+    <ul>
+      <li><b>Seek &amp; Find:</b> the older player reads clues, works out division and times table facts, and matches colours from descriptions. The younger one hears every picture read aloud, practises colours and counts to three. Neither can finish without the other.</li>
+      <li><b>Times Table Pegs:</b> every times table from 1 × 1 to 12 × 12 plus the matching division, with the trickier facts turning up more as the levels go on. She can also pick just the tables she wants to practise. Questions she gets wrong come back a little later, the way a good teacher would do it.</li>
+      <li><b>Paint Splash:</b> colour names, shapes and cause and effect, with a gentle voice that asks her to find a colour every so often.</li>
+    </ul>
+    <p>There are no adverts, no accounts and nothing to buy. Nobody loses, and each game has a natural place to stop, which helps at bedtime. They work with a keyboard, a mouse, a tablet or two gamepads.</p>
+    <p>Want to change more than names and looks? All of the code is free on <a href="https://github.com/GarySto/kids-games" target="_blank" rel="noopener">GitHub</a>, with simple steps for making your own copy.</p>
+  </section>
+  <footer><a href="https://garystow.co.uk/work/#play">Read how I built them</a> · <a href="https://garystow.co.uk/">garystow.co.uk</a> · <a href="https://garystow.co.uk/privacy/">Privacy</a></footer>
+</div>
+
+<script src="shared.js"></script>
+<script>KG.applyNames();</script>
+<script>
+"use strict";
+const mb = document.getElementById("mute");
+const label = () => mb.textContent = KG.muted ? "Sound off" : "Sound on"; label();
+mb.onclick = () => { KG.setMuted(!KG.muted); label(); };
+document.querySelectorAll(".card").forEach(a => a.addEventListener("click", () => KG.track("kids_game_open", { game_name: a.dataset.game })));
+
+function thumb(id, fn) { const c = document.getElementById(id), x = c.getContext("2d"); KG.useCtx(x); x.save(); x.scale(2, 2); fn(x); x.restore(); }
+function drawThumbs() {
+  const { circ, ell, rr, poly, line, txt, cluster, star4, star5 } = KG;
+  thumb("t-seek", x => {
+    const g = x.createLinearGradient(0, 0, 0, 90); g.addColorStop(0, "#6ec3f5"); g.addColorStop(1, "#d4f1ff"); x.fillStyle = g; x.fillRect(0, 0, 360, 92);
+    x.fillStyle = "#8fdc6a"; x.fillRect(0, 90, 360, 130); circ(318, 30, 18, "#ffd23f");
+    cluster([[60, 36, 14], [78, 28, 18], [98, 36, 13]], "#fff", 1.5);
+    cluster([[290, 160, 22], [326, 158, 23], [308, 144, 25]], "#43a747");
+    KG.drawAdult(318, 150, .55, "dad");
+    cluster([[290, 172, 22], [326, 170, 23], [308, 154, 25]], "#43a747");
+    ell(175, 186, 15, 13, "#ef4444"); line(175, 173, 178, 166, "#7a4a22", 3);
+    ell(242, 120, 15, 10, "#ffd93b"); circ(251, 107, 8, "#ffd93b"); ell(260, 108, 5, 3, "#ff8a1f", 2);
+    KG.drawKid(KG.mkPlayer("bell"), 90, 205, .95, { wave: true, tag: false });
+    const l = KG.mkPlayer("lala"); l.face = -1; KG.drawKid(l, 150, 210, .95, { tag: false });
+  });
+  thumb("t-pegs", x => {
+    const g = x.createLinearGradient(0, 0, 0, 220); g.addColorStop(0, "#160f3a"); g.addColorStop(1, "#33207a"); x.fillStyle = g; x.fillRect(0, 0, 360, 220);
+    for (let i = 0; i < 40; i++) { x.fillStyle = "rgba(255,255,255,.7)"; x.beginPath(); x.arc((i * 89) % 360, (i * 53) % 220, 1.2, 0, 7); x.fill(); }
+    const cols = ["#4cc9ff", "#4cc9ff", "#ff9f1c", "#4cc9ff", "#3ee07a"];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 9; c++) circ(120 + c * 26 + (r % 2) * 13, 70 + r * 32, 7, cols[(r * 9 + c * 7) % 5], 2);
+    circ(236, 26, 15, "#7c3aed", 2.5); star5(236, 26, 8, "#ffcf33", 1.5); circ(214, 120, 6, "#e8ecff", 2);
+    rr(14, 140, 92, 54, 12, "#fff", 2.5); txt("7 × 8", 60, 175, 24, KG.INK, "center");
+    KG.drawKid(KG.mkPlayer("bell"), 58, 128, .8, { wave: true, tag: false });
+  });
+  thumb("t-paint", x => {
+    x.fillStyle = "#9be38a"; x.fillRect(0, 0, 360, 220); rr(12, 52, 336, 160, 18, "#fffaf0", 3);
+    [["#ef4444", 40], ["#facc15", 92], ["#3b82f6", 144], ["#22c55e", 196], ["#f472b6", 248]].forEach(([c, bx]) => { poly([[bx - 16, 12], [bx + 16, 12], [bx + 12, 40], [bx - 12, 40]], "#e6ecf5", 2.5); ell(bx, 12, 16, 5, c, 2.5); });
+    x.lineCap = "round"; x.lineWidth = 14;
+    [["#f472b6", [[40, 180], [120, 110], [200, 170]]], ["#3b82f6", [[200, 170], [260, 90], [320, 160]]], ["#facc15", [[60, 90], [110, 150]]]].forEach(([c, pts]) => { x.strokeStyle = c; x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.stroke(); });
+    star5(290, 190, 18, "#a855f7", 0);
+    KG.drawKid(KG.mkPlayer("lala"), 200, 200, .95, { tag: false });
+  });
+}
+function drawOutfits() {
+  ["bell", "lala"].forEach(who => {
+    const box = document.getElementById("outfits-" + who); box.innerHTML = "";
+    KG.WARDROBE[who].forEach(o => {
+      const b = document.createElement("button"); b.className = "outfit"; b.type = "button"; b.setAttribute("aria-pressed", KG.getOutfit(who) === o);
+      const c = document.createElement("canvas"); c.width = 240; c.height = 300; b.appendChild(c); b.appendChild(document.createTextNode(KG.OUTFITS[o].label));
+      const x = c.getContext("2d"); KG.useCtx(x); x.save(); x.scale(2, 2); const p = KG.mkPlayer(who); p.outfit = o; KG.drawKid(p, 60, 144, .9, { tag: false }); x.restore();
+      b.onclick = () => { KG.setOutfit(o, who); KG.unlockAudio(); KG.sfx.pick(); KG.speak(`${KG.OUTFITS[o].label} ${KG.PLAYERS[who].name}!`); drawOutfits(); drawThumbs(); KG.track("outfit_pick", { player: who, outfit: o }); };
+      box.appendChild(b);
+    });
+  });
+}
+
+// ---------- Make it yours ----------
+const FAM_CARDS = [
+  { key: "bell", title: "Older child", role: "Reads the clues and does the maths", kid: true },
+  { key: "lala", title: "Younger child", role: "Big pictures, read out loud", kid: true },
+  { key: "adult1", title: "Grown-up who hides", role: "Hides in Seek & Find. Use what the children call them, like Daddy, Mum or Nanny.", kid: false },
+  { key: "adult2", title: "Grown-up who cheers", role: "Celebrates at the end of an adventure", kid: false }
+];
+let fam = KG.family(), famTouched = false;
+function famChanged() {
+  KG.saveFamily(fam); KG.applyNames(); drawFamPreviews(); drawThumbs(); drawOutfits();
+  document.getElementById("fam-msg").textContent = "Saved on this device.";
+  if (!famTouched) { famTouched = true; KG.track("family_customised"); }
+}
+function optRow(label, items, current, onPick, kind) {
+  const row = document.createElement("div"); row.className = "row";
+  const l = document.createElement("span"); l.textContent = label; row.appendChild(l);
+  const box = document.createElement("div"); box.className = "opts"; row.appendChild(box);
+  items.forEach(([val, text, col]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = kind === "sw" ? "sw" : "chip";
+    if (kind === "sw") { b.style.background = col; b.title = text; b.setAttribute("aria-label", label + ": " + text); } else b.textContent = text;
+    b.setAttribute("aria-pressed", String(val === current));
+    b.onclick = () => { box.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", "true"); onPick(val); famChanged(); };
+    box.appendChild(b);
+  });
+  return row;
+}
+function buildFamily() {
+  const grid = document.getElementById("fam-grid"); grid.innerHTML = "";
+  FAM_CARDS.forEach(c => {
+    const v = fam[c.key], card = document.createElement("div"); card.className = "fam";
+    card.innerHTML = `<h3>${c.title}</h3><p class="role">${c.role}</p>`;
+    const cv = document.createElement("canvas"); cv.width = 260; cv.height = 320; cv.id = "prev-" + c.key; card.appendChild(cv);
+    const nl = document.createElement("label"); nl.textContent = "Name"; const ni = document.createElement("input"); ni.type = "text"; ni.maxLength = 14; ni.value = v.name; ni.autocomplete = "off"; ni.spellcheck = false;
+    ni.oninput = () => { v.name = ni.value.replace(/[<>]/g, "").slice(0, 14) || KG.DEFAULT_FAMILY[c.key].name; famChanged(); };
+    nl.appendChild(ni); card.appendChild(nl);
+    card.appendChild(optRow("Skin", KG.SKINS.map((col, i) => [col, "Skin tone " + (i + 1), col]), v.skin, x => v.skin = x, "sw"));
+    card.appendChild(optRow("Hair colour", Object.keys(KG.HAIRS).map(k => [k, KG.HAIR_LABELS[k], KG.HAIRS[k]]), v.hair, x => v.hair = x, "sw"));
+    const styles = c.kid ? KG.KID_STYLES : KG.ADULT_STYLES;
+    card.appendChild(optRow("Hair style", Object.keys(styles).map(k => [k, styles[k]]), v.style, x => v.style = x));
+    card.appendChild(optRow("Eyes", Object.keys(KG.EYES).map(k => [k, KG.EYE_LABELS[k], KG.EYES[k]]), v.eyes, x => v.eyes = x, "sw"));
+    card.appendChild(optRow("Glasses", [[false, "No"], [true, "Yes"]], !!v.glasses, x => v.glasses = x));
+    if (!c.kid) {
+      card.appendChild(optRow("Beard", Object.keys(KG.BEARDS).map(k => [k, KG.BEARDS[k]]), v.beard, x => v.beard = x));
+      const capRow = optRow("Gold cap", [[false, "No"], [true, "Yes"]], !!v.cap, x => v.cap = x);
+      const li = document.createElement("input"); li.type = "text"; li.maxLength = 1; li.className = "capl"; li.value = v.capLetter || ""; li.title = "Letter on the cap"; li.setAttribute("aria-label", "Letter on the cap");
+      li.oninput = () => { v.capLetter = li.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 1); famChanged(); };
+      capRow.querySelector(".opts").appendChild(li); card.appendChild(capRow);
+    }
+    grid.appendChild(card);
+  });
+  drawFamPreviews();
+}
+function drawFamPreviews() {
+  FAM_CARDS.forEach(c => {
+    const cv = document.getElementById("prev-" + c.key); if (!cv) return;
+    const x = cv.getContext("2d"); x.clearRect(0, 0, cv.width, cv.height); KG.useCtx(x); x.save(); x.scale(2, 2);
+    if (c.kid) { const p = KG.mkPlayer(c.key); KG.drawKid(p, 65, 152, .95, { tag: false }); }
+    else KG.drawAdult(65, 152, .95, c.key);
+    x.restore();
+  });
+}
+const resetBtn = document.getElementById("fam-reset"); let resetArmed = false;
+resetBtn.onclick = () => {
+  if (!resetArmed) { resetArmed = true; resetBtn.textContent = "Tap again to reset"; setTimeout(() => { resetArmed = false; resetBtn.textContent = "Back to Bell and La La"; }, 3000); return; }
+  KG.resetFamily(); fam = KG.family(); resetArmed = false; resetBtn.textContent = "Back to Bell and La La"; buildFamily(); KG.applyNames(); drawThumbs(); drawOutfits();
+  document.getElementById("fam-msg").textContent = "Back to Bell and La La.";
+};
+
+// ---------- install ----------
+let deferredPrompt = null;
+const instBtn = document.getElementById("install"), instDone = document.getElementById("installed");
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+if (standalone) instDone.hidden = false;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; if (!standalone) instBtn.hidden = false; });
+instBtn.onclick = async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); const r = await deferredPrompt.userChoice; KG.track("kids_games_install", { outcome: r.outcome }); deferredPrompt = null; instBtn.hidden = true; if (r.outcome === "accepted") instDone.hidden = false; };
+addEventListener("appinstalled", () => { instBtn.hidden = true; instDone.hidden = false; });
+(document.fonts && document.fonts.load ? document.fonts.load("700 20px Fredoka") : Promise.resolve()).catch(() => {}).then(() => { drawThumbs(); drawOutfits(); buildFamily(); });
+</script>
+</body>
+</html>
