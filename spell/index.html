@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="../icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../icon-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spell &amp; Build: a spelling game I made for my daughter — Gary Stow</title>
+<meta name="description" content="Read the clue, work out the word and spell it to build a rocket, a castle or a cake. Practise school spelling lists from Year 1 to Year 6, or this week's words, with a spelling test mode. A free game I built with AI.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Spell &amp; Build: a spelling game I made for my daughter">
+<meta property="og:description" content="Read the clue, spell the word, build something new. School spelling lists from Year 1 to Year 6, plus a test mode.">
+<meta property="og:image" content="https://garystow.co.uk/assets/play-preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#7c3aed">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../shared.css?v=20261024b">
+<style>
+html,body{background:#bfe8ff}
+.overlay{justify-content:flex-start;overflow-y:auto;padding-top:28px;padding-bottom:70px;background:linear-gradient(#8fd3fb,#d4f1ff 60%,#fff6dc)}
+.setup{background:#fff;border:3px solid var(--ink);border-radius:20px;box-shadow:0 6px 0 var(--ink);padding:14px 18px;display:flex;flex-direction:column;gap:12px;max-width:46rem;width:100%;text-align:left}
+.setup .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.setup .row>b{min-width:9.5rem;font-size:1.05rem}
+.chip{font:inherit;font-weight:700;font-size:1rem;padding:6px 14px;border-radius:999px;border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--sun)}
+.chip.b[aria-pressed="true"]{background:#ddd0ff}.chip.l[aria-pressed="true"]{background:#ffd3e8}
+textarea{font:inherit;font-size:1.05rem;width:100%;min-height:76px;border:2px solid var(--ink);border-radius:12px;padding:8px 10px;resize:vertical}
+.note{font-size:.92rem;color:#4b4560}
+.btns .go2{background:#7cdca0}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Spell and Build game"></canvas>
+<div id="menu" class="overlay">
+  <h1 class="title">Spell &amp; Build <span>A spelling adventure</span></h1>
+  <p class="sub">Read the clue, work out the word, then spell it. Every word you spell builds something new.</p>
+  <div class="setup" data-clarity-mask="true">
+    <div class="row"><b>Who's playing?</b><button class="chip b" data-who="bell" type="button"><span data-name="bell">Bell</span></button><button class="chip l" data-who="lala" type="button"><span data-name="lala">La La</span></button></div>
+    <div class="row" id="lists"><b>Which words?</b></div>
+    <div id="weekbox">
+      <b>This week's spellings</b>
+      <p class="note">Type the words from school, one per line or with commas between them. They stay on this computer.</p>
+      <textarea id="week" spellcheck="false" autocomplete="off" placeholder="library, February, separate"></textarea>
+    </div>
+    <div class="row" id="levelrow"><b>Clues</b><button class="chip" data-level="easier" type="button">Easier: clue and sentence</button><button class="chip" data-level="harder" type="button">Harder: clue only</button></div>
+    <p class="note" id="listnote"></p>
+  </div>
+  <div class="btns">
+    <button class="go" id="play" type="button">Guess &amp; spell</button>
+    <button class="go2" data-test="15" type="button">Spelling test: 15 words</button>
+    <button class="go2" data-test="20" type="button">Spelling test: 20 words</button>
+  </div>
+  <div class="keys">
+    <div><b>Guess &amp; spell</b>Read the clue and the sentence, then type the word one letter at a time. Stuck? Help appears after a couple of tries.</div>
+    <div><b>Spelling test</b>Listen to each word, type it, then press <kbd>Enter</kbd>. <kbd>Space</kbd> hears it again. Results at the end.</div>
+  </div>
+  <p class="made">Word lists from the National Curriculum in England (Crown copyright, Open Government Licence).</p>
+</div>
+<div class="chrome left"><a href="../index.html">← Kids Games</a></div>
+<div class="chrome right"><button id="mute" type="button">Sound on</button><button id="fs" type="button">Full screen</button></div>
+
+<script src="../shared.js?v=20261024b"></script>
+<script>KG.applyNames();</script>
+<script src="words.js?v=20261024b"></script>
+<script>
+"use strict";
+/* Spell & Build. Two modes:
+   Guess & spell: a dictionary-style clue and one underscore per letter. Type the word in order; every right letter builds
+   part of a picture, and every word in a round builds a different picture. Wrong letters never take anything away;
+   after 3 wrong tries a sentence with a gap appears, after 5 the voice says the word, after 7 the next letter is shown.
+   Spelling test: 15 or 20 words read aloud with a sentence, typed freely, marked at the end like a school test.
+   Words come from this week's list if one is typed in, otherwise at random from the chosen year list.
+   Words that needed help come back in later rounds until they are spelled with no mistakes. */
+KG.chrome();
+const { W, H, INK, rand, pick, shuffle, clamp, circ, ell, rr, poly, line, cluster, txt, wrap, star4, star5, sfx } = KG;
+const ctx = KG.stage(document.getElementById("game"));
+const speakSlow = t => KG.speak(t, 1.05, true, .82);
+const ROUND = 8;
+// Easier (the default): the sentence with a gap shows from the start, the voice says the word after 2 wrong tries,
+// and the next letter glows after 4. Harder: clue only, then the sentence after 3, the voice after 5, a letter after 7.
+const LEVELS = { easier: { sentence: 0, voice: 2, letter: 4 }, harder: { sentence: 3, voice: 5, letter: 7 } };
+const Hn = () => LEVELS[M.level] || LEVELS.easier;
+
+// ---------- word bank ----------
+const BANK = {}; Object.values(SPELL_LISTS).forEach(l => l.words.forEach(([w, d, s]) => { BANK[w.toLowerCase()] = { word: w, clue: d, sentence: s }; }));
+const entry = w => BANK[String(w).toLowerCase()] || { word: String(w), clue: "", sentence: "" };
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const key = (who, what) => `kg_spell_${who}_${what}`;
+function parseWeek(text) { return [...new Set(String(text || "").split(/[\s,;]+/).map(w => w.replace(/[^A-Za-z]/g, "")).filter(w => w.length >= 2 && w.length <= 14))].slice(0, 30); }
+
+// ---------- menu ----------
+const M = { who: store.get("kg_spell_who", "bell"), list: "y34", level: "easier" };
+const listBox = document.getElementById("lists"), weekEl = document.getElementById("week"), noteEl = document.getElementById("listnote");
+const LIST_CHIPS = [["week", "This week's spellings"], ...Object.entries(SPELL_LISTS).map(([k, l]) => [k, l.label])];
+LIST_CHIPS.forEach(([k, label]) => { const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.dataset.list = k; b.textContent = label; listBox.appendChild(b); });
+function loadWho() { M.list = store.get(key(M.who, "list"), "y34"); M.level = store.get(key(M.who, "level"), "easier"); weekEl.value = store.get(key(M.who, "week"), ""); paintMenu(); }
+function paintMenu() {
+  document.querySelectorAll("[data-who]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.who === M.who)));
+  listBox.querySelectorAll("[data-list]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.list === M.list)));
+  document.querySelectorAll("[data-level]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === M.level)));
+  document.getElementById("weekbox").hidden = M.list !== "week";
+  const n = parseWeek(weekEl.value).length;
+  noteEl.textContent = M.list === "week" ? (n ? `${n} word${n === 1 ? "" : "s"} ready. Words that aren't in the built-in lists are read out loud as the clue.` : "No words yet, so we'll pick random Year 3 and 4 words until you add some.")
+    : `${SPELL_LISTS[M.list].words.length} words in the ${SPELL_LISTS[M.list].label} list. We pick them at random, and tricky ones come back.`;
+}
+document.querySelectorAll("[data-who]").forEach(b => b.onclick = () => { M.who = b.dataset.who; store.set("kg_spell_who", M.who); loadWho(); });
+listBox.addEventListener("click", e => { const b = e.target.closest("[data-list]"); if (!b) return; M.list = b.dataset.list; store.set(key(M.who, "list"), M.list); paintMenu(); });
+document.querySelectorAll("[data-level]").forEach(b => b.onclick = () => { M.level = b.dataset.level; store.set(key(M.who, "level"), M.level); paintMenu(); });
+weekEl.addEventListener("input", () => { store.set(key(M.who, "week"), weekEl.value); paintMenu(); });
+document.getElementById("play").onclick = () => startRound("play");
+document.querySelectorAll("[data-test]").forEach(b => b.onclick = () => startRound("test", +b.dataset.test));
+loadWho();
+
+// choose the words: this week's list, else random from the year list, with tricky words first
+function chooseWords(count, mode) {
+  const week = parseWeek(weekEl.value);
+  if (M.list === "week" && week.length) return mode === "test" ? shuffle(week).slice(0, count) : shuffle(week).slice(0, Math.min(count, PICTURES.length));
+  const listKey = M.list === "week" ? "y34" : M.list, pool = SPELL_LISTS[listKey].words.map(w => w[0]);
+  const tricky = store.get(key(M.who, "tricky"), []).filter(w => pool.includes(w));
+  const recent = store.get(key(M.who, "recent"), []);
+  const out = mode === "play" ? shuffle(tricky).slice(0, 3) : [];
+  const fresh = shuffle(pool.filter(w => !out.includes(w) && !recent.includes(w))), rest = shuffle(pool.filter(w => !out.includes(w) && recent.includes(w)));
+  [...fresh, ...rest].forEach(w => { if (out.length < count) out.push(w); });
+  store.set(key(M.who, "recent"), [...out, ...recent].slice(0, Math.min(60, Math.floor(pool.length * .6))));
+  return shuffle(out);
+}
+function markTricky(word, tricky) {
+  const k = key(M.who, "tricky"); let t = store.get(k, []);
+  t = t.filter(w => w !== word); if (tricky) t.unshift(word); store.set(k, t.slice(0, 40));
+}
+
+// ---------- pictures: every word builds a different one ----------
+const P = (name, parts, opts = {}) => Object.assign({ name, parts }, opts);
+const PICTURES = [
+  P("a rocket", [
+    () => { rr(-120, -22, 240, 22, 8, "#9aa4b2"); line(-80, -22, -100, 0, INK, 4); line(80, -22, 100, 0, INK, 4); },
+    () => rr(-52, -310, 104, 290, 46, "#f1f5f9"),
+    () => poly([[-50, -296], [50, -296], [0, -392]], "#ef4444"),
+    () => { circ(0, -210, 28, "#7cc6ff"); circ(-9, -219, 7, "rgba(255,255,255,.7)", 0); },
+    () => poly([[-52, -120], [-104, -24], [-52, -52]], "#ef4444"),
+    () => poly([[52, -120], [104, -24], [52, -52]], "#ef4444"),
+    () => rr(-52, -132, 104, 18, 0, "#3b82f6"),
+    () => star5(0, -78, 20, "#ffd23f", 2.5)
+  ], { done: (t) => { const f = 1 + Math.sin(t * 30) * .15; poly([[-30, -24], [30, -24], [0, 40 * f]], "#ff9f1c", 0); poly([[-16, -24], [16, -24], [0, 14 * f]], "#ffd23f", 0); }, launch: true }),
+  P("a birthday cake", [
+    () => ell(0, -8, 175, 20, "#e5e7eb"),
+    () => rr(-145, -118, 290, 104, 18, "#f9a8d4"),
+    () => cluster(Array.from({ length: 12 }, (_, i) => [-132 + i * 24, -116, 14]), "#ffffff", 2),
+    () => rr(-108, -210, 216, 94, 16, "#fde68a"),
+    () => cluster(Array.from({ length: 9 }, (_, i) => [-96 + i * 24, -208, 13]), "#ffffff", 2),
+    () => rr(-72, -284, 144, 76, 14, "#c4b5fd"),
+    () => [-40, 0, 40].forEach(x => rr(x - 6, -334, 12, 50, 4, ["#60a5fa", "#f472b6", "#34d399"][(x + 40) / 40], 2.5)),
+    () => [-40, 0, 40].forEach(x => { ell(x, -346, 7, 12, "#ffd23f", 2); ell(x, -344, 3, 6, "#ff7a1a", 0); })
+  ]),
+  P("a flower", [
+    () => poly([[-80, -110], [80, -110], [60, 0], [-60, 0]], "#d9772e"),
+    () => { rr(-90, -126, 180, 20, 8, "#e88c3c"); ell(0, -112, 74, 8, "#5b3a1e", 0); },
+    () => { line(0, -112, 0, -300, INK, 14); line(0, -112, 0, -300, "#34a853", 9); },
+    () => ell(-46, -190, 46, 18, "#4cbb4a", 3, -.5),
+    () => ell(46, -230, 46, 18, "#4cbb4a", 3, .5),
+    () => { for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; circ(Math.cos(a) * 52, -320 + Math.sin(a) * 52, 34, "#f472b6"); } },
+    () => { circ(0, -320, 32, "#ffd23f"); circ(-10, -330, 6, "rgba(255,255,255,.6)", 0); },
+    () => { ell(-44, -200, 13, 11, "#ef4444", 2); line(-44, -211, -44, -189, INK, 2); circ(-48, -203, 2.5, INK, 0); circ(-40, -197, 2.5, INK, 0); }
+  ]),
+  P("a castle", [
+    () => rr(-210, -22, 420, 22, 8, "#86d474"),
+    () => rr(-125, -210, 250, 190, 6, "#d6d3d1"),
+    () => [-110, -66, -22, 22, 66].forEach(x => rr(x, -238, 32, 30, 3, "#d6d3d1")),
+    () => rr(-200, -300, 84, 280, 6, "#cbc6c2"),
+    () => rr(116, -300, 84, 280, 6, "#cbc6c2"),
+    () => { rr(-36, -110, 72, 90, [36, 36, 0, 0], "#8b5a2b"); line(0, -104, 0, -20, INK, 2); },
+    () => [[-158, -230], [158, -230], [-70, -170], [70, -170]].forEach(([x, y]) => rr(x - 12, y - 18, 24, 34, [12, 12, 0, 0], "#1e293b", 2.5)),
+    () => { poly([[-210, -298], [-106, -298], [-158, -380]], "#3b82f6"); poly([[106, -298], [210, -298], [158, -380]], "#3b82f6"); line(-158, -380, -158, -420, INK, 3); poly([[-158, -420], [-124, -410], [-158, -398]], "#ef4444", 2); line(158, -380, 158, -420, INK, 3); poly([[158, -420], [192, -410], [158, -398]], "#ffd23f", 2); }
+  ]),
+  P("a snowman", [
+    () => ell(0, -10, 200, 26, "#f1f5f9"),
+    () => circ(0, -86, 84, "#ffffff"),
+    () => circ(0, -212, 62, "#ffffff"),
+    () => circ(0, -312, 46, "#ffffff"),
+    () => { circ(-15, -320, 5, INK, 0); circ(15, -320, 5, INK, 0); poly([[0, -308], [0, -296], [40, -302]], "#ff8a1f", 2.5); },
+    () => [-232, -200, -166].forEach(y => circ(0, y, 7, INK, 0)),
+    () => { rr(-54, -272, 108, 18, 9, "#ef4444"); rr(18, -268, 20, 60, 6, "#ef4444"); },
+    () => { rr(-50, -352, 100, 14, 4, "#1f2937"); rr(-34, -410, 68, 62, 6, "#1f2937"); rr(-34, -366, 68, 10, 0, "#ef4444", 0); }
+  ]),
+  P("a robot", [
+    () => { rr(-60, -110, 40, 96, 10, "#94a3b8"); rr(20, -110, 40, 96, 10, "#94a3b8"); rr(-72, -22, 62, 22, 10, "#475569"); rr(10, -22, 62, 22, 10, "#475569"); },
+    () => rr(-90, -270, 180, 168, 22, "#cbd5e1"),
+    () => { rr(-140, -258, 50, 26, 12, "#94a3b8"); rr(90, -258, 50, 26, 12, "#94a3b8"); circ(-150, -245, 18, "#64748b"); circ(150, -245, 18, "#64748b"); },
+    () => rr(-66, -380, 132, 100, 26, "#e2e8f0"),
+    () => { circ(-28, -334, 17, "#fff"); circ(28, -334, 17, "#fff"); circ(-28, -334, 9, "#3b82f6", 0); circ(28, -334, 9, "#3b82f6", 0); },
+    () => { line(0, -380, 0, -420, INK, 4); circ(0, -426, 11, "#ef4444"); },
+    () => { rr(-50, -230, 100, 70, 12, "#1e293b"); ["#22c55e", "#ffd23f", "#ef4444"].forEach((c, i) => circ(-26 + i * 26, -195, 10, c, 2)); },
+    () => { rr(-34, -308, 68, 16, 6, "#94a3b8"); [-20, -8, 4, 16].forEach(x => line(x + 4, -306, x + 4, -294, INK, 2)); }
+  ]),
+  P("a rainbow", [
+    () => cluster([[-205, -40, 34], [-170, -58, 42], [-130, -40, 34]], "#ffffff", 2.5),
+    () => cluster([[130, -40, 34], [170, -58, 42], [205, -40, 34]], "#ffffff", 2.5),
+    ...["#ef4444", "#fb923c", "#facc15", "#22c55e", "#3b82f6", "#a855f7"].map((c, i) => () => { ctx.beginPath(); ctx.arc(0, -40, 190 - i * 20, Math.PI, 0); ctx.lineWidth = 20; ctx.strokeStyle = c; ctx.lineCap = "butt"; ctx.stroke(); ctx.lineCap = "round"; })
+  ], { order: [2, 3, 4, 5, 6, 7, 0, 1] }),
+  P("a hot-air balloon", [
+    () => { rr(-44, -84, 88, 64, 10, "#a16207"); line(-44, -62, 44, -62, "#7c4a10", 3); },
+    () => { line(-40, -84, -78, -190, INK, 3); line(40, -84, 78, -190, INK, 3); },
+    () => ell(0, -300, 128, 148, "#ef4444"),
+    () => { ell(0, -300, 70, 148, "#ffd23f", 3); ell(0, -300, 22, 148, "#ef4444", 3); },
+    () => rr(-60, -178, 120, 20, 8, "#7c3aed"),
+    () => ell(0, -446, 32, 10, "#ef4444", 3),
+    () => cluster([[-190, -380, 26], [-160, -392, 32], [-128, -380, 24]], "#ffffff", 2),
+    () => { [[150, -400], [190, -370]].forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.quadraticCurveTo(x - 7, y - 10, x, y); ctx.quadraticCurveTo(x + 7, y - 10, x + 14, y); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke(); }); }
+  ]),
+  P("a treehouse", [
+    () => rr(-34, -280, 68, 280, 12, "#8b5a2b"),
+    () => { line(-20, -240, -130, -300, INK, 16); line(-20, -240, -130, -300, "#8b5a2b", 10); line(20, -220, 130, -280, INK, 16); line(20, -220, 130, -280, "#8b5a2b", 10); },
+    () => cluster([[-120, -330, 70], [120, -320, 70], [0, -400, 90], [-40, -300, 60], [60, -300, 60]], "#4cbb4a"),
+    () => rr(-130, -232, 260, 16, 6, "#a8662f"),
+    () => rr(-92, -340, 184, 110, 10, "#fbbf24"),
+    () => poly([[-112, -338], [112, -338], [0, -410]], "#ef4444"),
+    () => { rr(-60, -306, 44, 76, [22, 22, 0, 0], "#8b5a2b"); rr(20, -310, 46, 40, 6, "#cdeeff"); line(43, -310, 43, -270, INK, 2); },
+    () => { line(80, -218, 80, 0, INK, 5); line(124, -218, 124, 0, INK, 5); for (let y = -200; y < 0; y += 34) line(80, y, 124, y, INK, 5); }
+  ]),
+  P("an ice cream", [
+    () => { poly([[-70, -220], [70, -220], [0, 0]], "#e3a94a"); ctx.save(); ctx.beginPath(); ctx.moveTo(-70, -220); ctx.lineTo(70, -220); ctx.lineTo(0, 0); ctx.closePath(); ctx.clip(); for (let i = -6; i < 7; i++) { line(i * 22, -220, i * 22 + 90, 0, "#c7862f", 3); line(i * 22, -220, i * 22 - 90, 0, "#c7862f", 3); } ctx.restore(); poly([[-70, -220], [70, -220], [0, 0]], null); },
+    () => circ(0, -250, 70, "#f9a8d4"),
+    () => circ(-10, -340, 62, "#fef3c7"),
+    () => circ(6, -422, 54, "#a7f3d0"),
+    () => { ctx.beginPath(); ctx.moveTo(-50, -458); ctx.quadraticCurveTo(6, -486, 58, -452); ctx.lineTo(54, -430); ctx.quadraticCurveTo(40, -410, 34, -436); ctx.quadraticCurveTo(10, -400, -6, -440); ctx.quadraticCurveTo(-30, -410, -40, -436); ctx.closePath(); ctx.fillStyle = "#7c2d12"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke(); },
+    () => [[-40, -260, "#3b82f6"], [30, -230, "#ffd23f"], [-30, -350, "#ef4444"], [30, -330, "#22c55e"], [-10, -300, "#a855f7"], [20, -400, "#fb923c"]].forEach(([x, y, c], i) => { ctx.save(); ctx.translate(x, y); ctx.rotate(i); rr(-8, -3, 16, 6, 3, c, 0); ctx.restore(); }),
+    () => { line(4, -470, 10, -500, "#3f9a3f", 4); circ(4, -478, 16, "#ef4444"); },
+    () => { ctx.save(); ctx.translate(46, -420); ctx.rotate(.5); rr(-10, -70, 20, 80, 4, "#f5d08a"); ctx.restore(); }
+  ]),
+  P("a sailing boat", [
+    () => { rr(-220, -40, 440, 40, 14, "#60a5fa", 0); for (let x = -200; x < 220; x += 50) { ctx.beginPath(); ctx.arc(x, -40, 18, Math.PI, 0); ctx.fillStyle = "#93c5fd"; ctx.fill(); } },
+    () => poly([[-170, -110], [170, -110], [120, -30], [-120, -30]], "#ef4444"),
+    () => rr(-150, -118, 300, 16, 6, "#ffffff"),
+    () => { line(0, -118, 0, -420, INK, 10); line(0, -118, 0, -420, "#8b5a2b", 6); },
+    () => poly([[8, -410], [8, -140], [150, -140]], "#ffffff"),
+    () => poly([[-8, -380], [-8, -160], [-120, -160]], "#fde68a"),
+    () => poly([[0, -420], [0, -450], [44, -435]], "#22c55e", 2.5),
+    () => [-90, -30, 30, 90].forEach(x => circ(x, -72, 12, "#cdeeff", 2.5))
+  ]),
+  P("a train", [
+    () => { line(-230, -6, 230, -6, INK, 6); for (let x = -220; x <= 220; x += 40) rr(x - 6, -10, 12, 12, 2, "#8b5a2b", 0); },
+    () => rr(-220, -150, 170, 110, 14, "#3b82f6"),
+    () => rr(-30, -150, 190, 110, 14, "#ef4444"),
+    () => rr(80, -240, 90, 100, 10, "#ef4444"),
+    () => rr(-10, -220, 36, 72, 6, "#1f2937"),
+    () => [-190, -90, 10, 120].forEach(x => { circ(x, -34, 26, "#1f2937"); circ(x, -34, 9, "#cbd5e1", 0); }),
+    () => { rr(-200, -128, 50, 40, 6, "#cdeeff"); rr(-120, -128, 50, 40, 6, "#cdeeff"); rr(96, -224, 56, 40, 6, "#cdeeff"); },
+    () => cluster([[10, -260, 22], [36, -290, 28], [70, -316, 32]], "#e5e7eb", 2)
+  ])
+];
+function drawPicture(pic, progress, x, y, s, t = 0, finished = false) {
+  const n = pic.parts.length, show = Math.round(clamp(progress, 0, 1) * n), order = pic.order || pic.parts.map((_, i) => i);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  if (finished && pic.launch) { const k = Math.max(0, t - .6); ctx.translate(0, -k * k * 520); }
+  if (finished && pic.done) pic.done(t);
+  order.slice(0, show).sort((a, b) => a - b).forEach(i => pic.parts[i]());
+  ctx.restore();
+}
+
+// ---------- game state ----------
+const S = { screen: "menu", mode: "play", words: [], i: 0, got: 0, miss: 0, typed: "", results: [], pics: [], t: 0, doneT: 0, msg: null, parts: [], shake: 0, lastWrong: "" };
+function startRound(mode, count) {
+  KG.unlockAudio();
+  S.mode = mode; S.words = chooseWords(mode === "test" ? count : ROUND, mode); S.i = 0; S.results = []; S.pics = shuffle(PICTURES).slice(0, S.words.length);
+  if (!S.words.length) return;
+  document.getElementById("menu").hidden = true; S.screen = mode;
+  KG.track("game_start", { game_name: "spell", game_mode: mode });
+  nextWord(true);
+}
+function current() { return entry(S.words[Math.min(S.i, S.words.length - 1)] || ""); }
+function nextWord(first) {
+  S.got = 0; S.miss = 0; S.typed = ""; S.doneT = 0; S.wordDone = false; S.hintSaid = false; S.lastWrong = "";
+  const e = current();
+  if (S.mode === "test") { setTimeout(() => sayTestWord(), first ? 400 : 250); return; }
+  if (!e.clue) setTimeout(() => { if (S.screen === "play" && current().word === e.word) speakSlow(`Listen carefully. ${e.word}.`); }, 400);
+}
+function sayTestWord() { if (S.screen !== "test") return; const e = current(); speakSlow(`Word ${S.i + 1}. ${e.word}.${e.sentence ? " " + e.sentence : ""} ${e.word}.`); }
+function sayWord() { const e = current(); speakSlow(`${e.word}.`); }
+function burst(x, y, n, cols) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = rand(80, 300); S.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: rand(.6, 1.3), col: pick(cols) }); } }
+
+// ---------- input ----------
+function letter(ch) {
+  if (S.screen === "play") {
+    if (S.wordDone) return;
+    const w = current().word, want = w[S.got];
+    if (ch.toLowerCase() === want.toLowerCase()) {
+      S.got++; sfx.ping(S.got); burst(PIC_X, PIC_Y - 200, 8, ["#ffd23f", "#ffffff", "#7cc6ff"]);
+      if (S.got >= w.length) finishWord();
+    } else {
+      S.miss++; S.shake = .35; S.lastWrong = ch.toLowerCase(); sfx.boop();
+      if (Hn().sentence > 0 && S.miss === Hn().sentence && current().sentence) KG.speak(gapSentence(true));
+      if (S.miss === Hn().voice) sayWord();
+    }
+  } else if (S.screen === "test") { if (S.typed.length < 16) S.typed += ch.toLowerCase(); sfx.ping(S.typed.length); }
+}
+function backspace() { if (S.screen === "test") S.typed = S.typed.slice(0, -1); }
+function enter() {
+  if (S.screen === "test") { if (!S.typed) return; submitTest(); return; }
+  if (S.screen === "play" && S.wordDone && S.t - S.doneT > 1.2) advance();
+  if (S.screen === "end" && S.t - S.endT > 1) toMenu();
+}
+function finishWord() {
+  const e = current(), stars = S.miss === 0 ? 3 : S.miss < Hn().voice ? 2 : 1;
+  S.wordDone = true; S.doneT = S.t; S.results.push({ word: e.word, stars, miss: S.miss });
+  markTricky(e.word, S.miss >= Hn().voice);
+  sfx.done(); burst(PIC_X, PIC_Y - 220, 60, ["#ffd23f", "#ff7ab6", "#7cc6ff", "#8be38b", "#b18cff"]);
+  KG.speak(`${e.word}! ${pick(["Brilliant", "Amazing", "Super spelling", "Well done", "Fantastic"])}! You built ${S.pics[S.i].name}!`);
+}
+function advance() { S.i++; if (S.i >= S.words.length) return endRound(); nextWord(false); }
+function submitTest() {
+  const e = current(), ok = S.typed.toLowerCase() === e.word.toLowerCase();
+  S.results.push({ word: e.word, typed: S.typed, ok }); markTricky(e.word, !ok); sfx.pick();
+  S.typed = ""; S.i++; if (S.i >= S.words.length) return endRound(); nextWord(false);
+}
+function endRound() {
+  S.screen = "end"; S.endT = S.t; KG.track("game_complete", { game_name: "spell", game_mode: S.mode });
+  const nm = KG.name(M.who);
+  if (S.mode === "test") { const n = S.results.filter(r => r.ok).length; sfx.win(); KG.speak(`Test finished! ${nm}, you spelled ${n} out of ${S.results.length} correctly.${n === S.results.length ? " Every single one!" : ""}`); }
+  else { sfx.win(); KG.speak(`Round complete! Look at everything you built, ${nm}!`); }
+  burst(W / 2, 200, 120, ["#ffd23f", "#ff7ab6", "#7cc6ff", "#8be38b", "#b18cff"]);
+}
+function toMenu() { S.screen = "menu"; document.getElementById("menu").hidden = false; loadWho(); speechSynthesis && speechSynthesis.cancel && speechSynthesis.cancel(); }
+function practiseMisses() { const miss = S.results.filter(r => !r.ok).map(r => r.word); if (!miss.length) return; S.mode = "play"; S.words = shuffle(miss).slice(0, PICTURES.length); S.i = 0; S.results = []; S.pics = shuffle(PICTURES).slice(0, S.words.length); S.screen = "play"; nextWord(true); }
+addEventListener("keydown", e => {
+  if (S.screen === "menu" || e.target.closest("textarea,input")) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); letter(e.key); }
+  else if (e.key === "Backspace") { e.preventDefault(); backspace(); }
+  else if (e.key === "Enter") { e.preventDefault(); enter(); }
+  else if (e.key === " ") { e.preventDefault(); if (S.screen === "test") sayTestWord(); else if (S.screen === "play" && S.wordDone) enter(); else if (S.screen === "play" && (S.miss >= Hn().voice || !current().clue)) sayWord(); else if (S.screen === "end") enter(); }
+  else if (e.key === "Escape") toMenu();
+});
+const BUTTONS = [];
+document.getElementById("game").addEventListener("pointerdown", e => {
+  KG.unlockAudio(); const w = KG.toWorld(e);
+  const b = BUTTONS.find(b => w.x > b.x && w.x < b.x + b.w && w.y > b.y && w.y < b.y + b.h);
+  if (b) b.fn(); else if ((S.screen === "play" && S.wordDone)) enter();
+});
+
+// ---------- drawing ----------
+const PIC_X = 965, PIC_Y = 640;
+function button(x, y, w, h, label, fn, col = "#fff", size = 26) { BUTTONS.push({ x, y, w, h, fn }); rr(x, y + 4, w, h, 14, INK, 0); rr(x, y, w, h, 14, col, 3); txt(label, x + w / 2, y + h / 2 + size * .36, size, INK, "center", 700); }
+function keyboard(y0, extra) {
+  const rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"], kw = 54, gap = 6;
+  rows.forEach((r, ri) => {
+    const width = r.length * (kw + gap) - gap, x0 = 340 - width / 2 + (ri === 2 && extra ? -30 : 0);
+    [...r].forEach((ch, i) => { const hint = S.screen === "play" && S.miss >= Hn().letter && !S.wordDone && current().word[S.got].toLowerCase() === ch;
+      button(x0 + i * (kw + gap), y0 + ri * (kw + 8), kw, kw, ch, () => letter(ch), hint ? "#fff3a0" : ch === S.lastWrong && S.shake > 0 ? "#ffd1d1" : "#fff", 26); });
+    if (ri === 2 && extra) { button(x0 + width + gap, y0 + ri * (kw + 8), 70, kw, "⌫", backspace, "#ffd1dc", 24); }
+  });
+}
+function background() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#8fd3fb"); g.addColorStop(.7, "#d4f1ff"); g.addColorStop(1, "#fff6dc"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  [[150, 70, .8], [520, 40, .6], [1150, 60, .9]].forEach(([x, y, s]) => { ctx.save(); ctx.translate(x + Math.sin(S.t * .2 + x) * 20, y); ctx.scale(s, s); cluster([[-40, 0, 24], [-12, -14, 30], [22, -8, 26], [46, 4, 20], [0, 8, 22]], "rgba(255,255,255,.9)", 0); ctx.restore(); });
+}
+function topBar() {
+  rr(30, 18, 210, 46, 23, "#fff", 3); txt(`Word ${Math.min(S.i + 1, S.words.length)} of ${S.words.length}`, 135, 50, 24, INK, "center");
+  const p = KG.mkPlayer(M.who); KG.nameTag(p.name, p.col, 380, 58);
+  if (S.mode === "play") { const stars = S.results.reduce((a, r) => a + r.stars, 0); rr(500, 18, 130, 46, 23, "#fff", 3); star4(530, 41, 15, "#ffd23f"); txt(String(stars), 580, 52, 28, INK, "center"); }
+}
+function gapSentence(spoken) { const e = current(); return e.sentence.replace(new RegExp("\\b" + e.word + "\\b", "i"), spoken ? "blank" : "_".repeat(Math.max(4, e.word.length))); }
+function drawPlay() {
+  BUTTONS.length = 0; background(); topBar();
+  const e = current(), w = e.word;
+  // clue card
+  rr(30, 84, 620, 168, 22, "#fffaf0", 3); rr(30, 84, 620, 10, [22, 22, 0, 0], "#7c3aed", 0);
+  txt("Clue", 54, 126, 24, "#6d28d9");
+  if (e.clue) { const m = e.clue.match(/^\(([^)]+)\)\s*(.*)$/); let y = 126; if (m) { rr(130, 104, ctx.measureText(m[1]).width + 30, 30, 15, "#ede6ff", 0); txt(m[1], 145, 126, 18, "#6d28d9", "left", 600); } wrap(m ? m[2] : e.clue, 570, 28).slice(0, 3).forEach((l, i) => txt(l, 54, 170 + i * 34, 28, INK, "left", 600)); }
+  else { txt("Listen to the word, then spell it.", 54, 172, 28, INK, "left", 600); button(54, 194, 220, 46, "Hear it again", sayWord, "#ddd0ff", 22); }
+  // help
+  const nextAt = [Hn().sentence, Hn().voice, Hn().letter].find(n => n > S.miss);
+  if (S.miss >= Hn().sentence && e.sentence) { rr(30, 262, 620, 64, 18, "#ffffff", 2.5); wrap(gapSentence(false), 590, 22).slice(0, 2).forEach((l, i) => txt(l, 46, 288 + i * 26, 22, "#4b4560", "left", 600)); }
+  if (S.miss >= Hn().voice && e.clue) button(470, 334, 180, 40, "Hear it", sayWord, "#ddd0ff", 20);
+  if (!S.wordDone) txt(nextAt ? `Help unlocks after ${nextAt - S.miss} more ${nextAt - S.miss === 1 ? "try" : "tries"}` : "Look for the glowing letter", 34, 362, 19, "#5b5370", "left", 600);
+  // the word: one box per letter
+  const n = w.length, bw = Math.min(46, Math.floor(600 / n) - 6), gap = 6, total = n * (bw + gap) - gap, x0 = 340 - total / 2, y0 = 390, sh = S.shake > 0 ? Math.sin(S.t * 60) * 6 : 0;
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * (bw + gap) + (i === S.got ? sh : 0), filled = i < S.got;
+    if (i === S.got && !S.wordDone) rr(x - 3, y0 - 4, bw + 6, 66, 10, "rgba(255,210,63,.45)", 0);
+    if (filled) txt(w[i], x + bw / 2, y0 + 44, Math.min(40, bw), INK, "center", 700);
+    else if (i === S.got && S.miss >= Hn().letter) { ctx.save(); ctx.globalAlpha = .35 + .2 * Math.sin(S.t * 5); txt(w[i], x + bw / 2, y0 + 44, Math.min(40, bw), "#7c3aed", "center", 700); ctx.restore(); }
+    line(x, y0 + 56, x + bw, y0 + 56, INK, 4);
+  }
+  keyboard(478, false);
+  // picture
+  rr(680, 84, 570, 600, 26, "rgba(255,255,255,.55)", 3);
+  const pic = S.pics[S.i], prog = S.got / n, ft = S.wordDone ? S.t - S.doneT : 0;
+  drawPicture(pic, S.wordDone ? 1 : prog, PIC_X, PIC_Y, .95, ft, S.wordDone);
+  if (S.wordDone) { txt(`You built ${pic.name}!`, PIC_X, 132, 34, "#7c3aed", "center", 700); if (ft > 1.2) button(PIC_X - 120, 626, 240, 50, S.i + 1 >= S.words.length ? "Finish" : "Next word", advance, "#ffd23f", 24); }
+  else txt(`Spell it to build ${pic.name}`, PIC_X, 132, 26, "#5b5370", "center", 600);
+}
+function drawTest() {
+  BUTTONS.length = 0; background(); topBar();
+  rr(240, 110, 800, 230, 26, "#fffaf0", 3); rr(240, 110, 800, 10, [26, 26, 0, 0], "#22a06b", 0);
+  txt("Spelling test", 640, 160, 34, "#16803c", "center");
+  txt("Listen, then type the word you hear.", 640, 205, 26, INK, "center", 600);
+  button(500, 234, 280, 56, "Hear it again", sayTestWord, "#ddd0ff", 24);
+  txt("or press Space", 640, 318, 18, "#5b5370", "center", 600);
+  rr(340, 360, 600, 84, 18, "#fff", 3); txt(S.typed + (Math.floor(S.t * 2) % 2 ? "|" : " "), 640, 418, 44, INK, "center", 700);
+  keyboard(470, true);
+  button(1010, 590, 210, 56, "Done ✓", enter, "#7cdca0", 24);
+}
+function drawEnd() {
+  BUTTONS.length = 0; background();
+  const nm = KG.name(M.who);
+  if (S.mode === "test") {
+    const ok = S.results.filter(r => r.ok).length;
+    txt(`${ok} out of ${S.results.length}`, W / 2, 80, 56, "#ffd23f", "center", 700, 8); txt(ok === S.results.length ? `Every one right, ${nm}!` : `Well done, ${nm}!`, W / 2, 124, 28, INK, "center", 700);
+    const half = Math.ceil(S.results.length / 2);
+    S.results.forEach((r, i) => { const col = i < half ? 0 : 1, x = 150 + col * 520, y = 168 + (i % half) * 40;
+      circ(x, y - 8, 14, r.ok ? "#22c55e" : "#fca5a5", 2.5); txt(r.ok ? "✓" : "✗", x, y - 1, 18, "#fff", "center", 700);
+      txt(r.word, x + 28, y, 24, INK, "left", 700); if (!r.ok) { const ww = ctx.measureText(r.word).width; txt(`you wrote "${r.typed}"`, x + 40 + ww, y, 19, "#9b1c1c", "left", 600); } });
+    const miss = S.results.length - ok;
+    if (miss) button(W / 2 - 330, 640, 330, 56, `Practise the ${miss} tricky ${miss === 1 ? "one" : "ones"}`, practiseMisses, "#ffd23f", 22);
+    button(W / 2 + (miss ? 20 : -150), 640, 300, 56, "Back to the menu", toMenu, "#fff", 22);
+  } else {
+    txt("Round complete!", W / 2, 76, 52, "#ffd23f", "center", 700, 8); txt(`Look at everything you built, ${nm}!`, W / 2, 118, 28, INK, "center", 700);
+    const n = S.results.length, cols = Math.min(4, n), rows = Math.ceil(n / cols), cw = 260, ch = rows > 2 ? 150 : 230;
+    S.results.forEach((r, i) => { const c = i % cols, ro = Math.floor(i / cols), x = W / 2 - (cols * cw) / 2 + c * cw + cw / 2, y = 150 + ro * ch;
+      rr(x - cw / 2 + 10, y, cw - 20, ch - 14, 18, "rgba(255,255,255,.7)", 2.5);
+      drawPicture(S.pics[i], 1, x, y + ch - 60, (ch - 70) / 520, 0, false);
+      txt(r.word, x, y + ch - 30, 22, INK, "center", 700); for (let k = 0; k < 3; k++) star4(x - 20 + k * 20, y + 16, 9, k < r.stars ? "#ffd23f" : "#e5e7eb"); });
+    button(W / 2 - 300, 650, 280, 54, "Play again", () => startRound("play"), "#ffd23f", 22);
+    button(W / 2 + 20, 650, 280, 54, "Back to the menu", toMenu, "#fff", 22);
+  }
+}
+function drawParts(dt) { S.parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 380 * dt; q.life -= dt; ctx.save(); ctx.globalAlpha = clamp(q.life, 0, 1); star4(q.x, q.y, 7, q.col); ctx.restore(); }); S.parts = S.parts.filter(q => q.life > 0); }
+let last = performance.now();
+function frame(now) {
+  const dt = clamp((now - last) / 1000, 0, .05); last = now; S.t += dt; S.shake = Math.max(0, S.shake - dt);
+  KG.begin(null, "#bfe8ff", 0);
+  if (S.screen === "play") drawPlay(); else if (S.screen === "test") drawTest(); else if (S.screen === "end") drawEnd(); else { background(); drawPicture(PICTURES[Math.max(0, Math.floor(S.t / 2.5)) % PICTURES.length], 1, 1120, 690, .5); }
+  drawParts(dt);
+  KG.end(); requestAnimationFrame(frame);
+}
+(document.fonts && document.fonts.load ? document.fonts.load("700 20px Fredoka") : Promise.resolve()).catch(() => {}).then(() => requestAnimationFrame(frame));
+window.SP = { S, M, startRound, letter, enter, chooseWords, PICTURES, current };
+</script>
+</body>
+</html>

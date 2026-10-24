@@ -2,6 +2,15 @@
    Made by Gary for Bell and La La. Everything is drawn in code, no image files.
    Every family can set their own names and looks on the Kids Games page; they are kept only in that browser. */
 "use strict";
+// older iPads (Safari before 16) can't draw rounded rectangles, so add a simple version of it
+if (window.CanvasRenderingContext2D && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    let [tl, tr, br, bl] = Array.isArray(r) ? (r.length === 4 ? r : r.length === 2 ? [r[0], r[1], r[0], r[1]] : [r[0], r[0], r[0], r[0]]) : [r || 0, r || 0, r || 0, r || 0];
+    const m = Math.min(Math.abs(w), Math.abs(h)) / 2; [tl, tr, br, bl] = [tl, tr, br, bl].map(v => Math.min(Math.max(+v || 0, 0), m));
+    this.moveTo(x + tl, y); this.lineTo(x + w - tr, y); this.arcTo(x + w, y, x + w, y + tr, tr); this.lineTo(x + w, y + h - br); this.arcTo(x + w, y + h, x + w - br, y + h, br);
+    this.lineTo(x + bl, y + h); this.arcTo(x, y + h, x, y + h - bl, bl); this.lineTo(x, y + tl); this.arcTo(x, y, x + tl, y, tl); this.closePath();
+  };
+}
 const KG = (() => {
   const W = 1280, H = 720, INK = "#2d2340";
   let cv, ctx, scale = 1, offX = 0, offY = 0, dpr = 1;
@@ -100,10 +109,10 @@ const KG = (() => {
     voice = vs.find(v => /en-GB/i.test(v.lang) && /Libby|Sonia|Hazel|Serena|Kate|Martha|Maisie|female/i.test(v.name)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
   }
   if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function speak(text, pitch = 1.15, interrupt = true) {
+  function speak(text, pitch = 1.15, interrupt = true, rate = .95) {
     if (muted || !("speechSynthesis" in window)) return;
     if (interrupt) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/\bLa La\b/g, "Lala")); if (voice) u.voice = voice; u.lang = "en-GB"; u.pitch = pitch; u.rate = .95;
+    const u = new SpeechSynthesisUtterance(text.replace(/\bLa La\b/g, "Lala")); if (voice) u.voice = voice; u.lang = "en-GB"; u.pitch = pitch; u.rate = rate;
     speechSynthesis.speak(u);
   }
   function setMuted(m) { muted = m; try { localStorage.setItem("kg_muted", m ? "1" : "0"); } catch (e) {} if (m && "speechSynthesis" in window) speechSynthesis.cancel(); }
@@ -148,11 +157,12 @@ const KG = (() => {
   const KID_STYLES = { curly: "Long curls", straight: "Long straight", short: "Short", puffs: "Puffs", braids: "Braids", afro: "Afro" };
   const ADULT_STYLES = { short: "Short", long: "Long straight", curly: "Curly", bun: "Bun", afro: "Afro", bald: "Bald" };
   const BEARDS = { none: "None", stubble: "Stubble", beard: "Beard" };
+  const KID_BODIES = { girl: "Girl", boy: "Boy" }, ADULT_BODIES = { woman: "Woman", man: "Man" };
   const DEFAULT_FAMILY = {
-    bell: { name: "Bell", skin: "#ffdcc4", hair: "blonde", style: "curly", eyes: "blue", glasses: false },
-    lala: { name: "La La", skin: "#ffdcc4", hair: "blonde", style: "curly", eyes: "blue", glasses: false },
-    adult1: { name: "Daddy", skin: "#ffdcc4", hair: "ashbrown", style: "short", eyes: "bluegrey", beard: "stubble", cap: true, capLetter: "G", glasses: false },
-    adult2: { name: "Mummy", skin: "#ffdcc4", hair: "blonde", style: "long", eyes: "blue", beard: "none", cap: false, capLetter: "", glasses: false }
+    bell: { name: "Bell", body: "girl", skin: "#ffdcc4", hair: "blonde", style: "curly", eyes: "blue", glasses: false },
+    lala: { name: "La La", body: "girl", skin: "#ffdcc4", hair: "blonde", style: "curly", eyes: "blue", glasses: false },
+    adult1: { name: "Daddy", body: "man", skin: "#ffdcc4", hair: "ashbrown", style: "short", eyes: "bluegrey", beard: "stubble", cap: true, capLetter: "G", glasses: false },
+    adult2: { name: "Mummy", body: "woman", skin: "#ffdcc4", hair: "blonde", style: "long", eyes: "blue", beard: "none", cap: false, capLetter: "", glasses: false }
   };
   const clean = (v, max) => String(v == null ? "" : v).replace(/[<>]/g, "").trim().slice(0, max);
   function family() {
@@ -163,7 +173,8 @@ const KG = (() => {
       v.name = clean(v.name, 14) || d.name; v.capLetter = clean(v.capLetter, 1).toUpperCase();
       if (!SKINS.includes(v.skin) && !/^#[0-9a-f]{6}$/i.test(v.skin)) v.skin = d.skin;
       if (!HAIRS[v.hair]) v.hair = d.hair; if (!EYES[v.eyes]) v.eyes = d.eyes;
-      if (k === "bell" || k === "lala") { if (!KID_STYLES[v.style]) v.style = d.style; } else { if (!ADULT_STYLES[v.style]) v.style = d.style; if (!BEARDS[v.beard]) v.beard = d.beard; }
+      if (k === "bell" || k === "lala") { if (!KID_STYLES[v.style]) v.style = d.style; if (!KID_BODIES[v.body]) v.body = d.body; }
+      else { if (!ADULT_STYLES[v.style]) v.style = d.style; if (!BEARDS[v.beard]) v.beard = d.beard; if (!ADULT_BODIES[v.body]) v.body = d.body; }
       out[k] = v;
     });
     return out;
@@ -198,7 +209,7 @@ const KG = (() => {
     const st = lk.style;
     if (st === "curly") { curls(-21, -92, -92 + hl + 30, -1, 10, hc); curls(21, -92, -92 + hl + 30, 1, 10, hc); cluster([[-14, -96, 19], [14, -96, 19], [0, -104, 21]], hc.base, 2); }
     else if (st === "straight") { rr(-26, -106, 52, 46 + hl, [24, 24, 10, 10], hc.base, 2.5); [-17, -9, 9, 17].forEach(dx => line(dx, -80, dx, -66 + hl, hc.dark, 2)); }
-    else if (st === "short") { rr(-27, -106, 54, 44, [24, 24, 12, 12], hc.base, 2.5); }
+    else if (st === "short") { rr(-26, -106, 52, 32, [24, 24, 10, 10], hc.base, 2.5); }
     else if (st === "puffs") { cluster([[-27, -104, 15], [27, -104, 15]], hc.base, 2.5); [[-27, -104], [27, -104]].forEach(([x, y]) => { circ(x - 4, y - 3, 3, hc.light, 0); circ(x + 4, y + 3, 2.5, hc.dark, 0); }); cluster([[0, -94, 25]], hc.base, 2.5); }
     else if (st === "afro") { cluster([[0, -92, 34], [-22, -76, 20], [22, -76, 20]], hc.base, 2.5); for (let i = 0; i < 14; i++) { const a = i * 2.39, r = 8 + (i * 5) % 24; circ(Math.cos(a) * r, -96 + Math.sin(a) * r * .8, 2, i % 2 ? hc.light : hc.dark, 0); } }
     else if (st === "braids") { cluster([[0, -94, 25]], hc.base, 2.5); [-1, 1].forEach(sd => { for (let i = 0; i < 6; i++) ell(sd * 24, -82 + i * 9 + hl * .3, 6, 5.5, i % 2 ? hc.base : hc.dark, 2); circ(sd * 24, -82 + 6 * 9 + hl * .3, 3.5, "#ff7ab6", 1.5); }); }
@@ -249,7 +260,7 @@ const KG = (() => {
     circ(0, -80, 23, SKIN);
     kidHairFront(lk, hc);
     const ex = f * 2, eye = EYES[lk.eyes] || EYES.blue, dark = shade(SKIN, -.3) === SKIN ? INK : INK;
-    [-8, 8].forEach(dx => { ell(dx + ex, -79, 5.5, 6.5, "#fff", 2); circ(dx + ex + f, -78.5, 4.2, eye, 0); circ(dx + ex + f, -78.5, 2, "#1d2a55", 0); circ(dx + ex + f - 1.4, -80.5, 1.3, "#fff", 0); line(dx + ex - 4, -85, dx + ex - 6, -87.5, dark, 1.5); });
+    [-8, 8].forEach(dx => { ell(dx + ex, -79, 5.5, 6.5, "#fff", 2); circ(dx + ex + f, -78.5, 4.2, eye, 0); circ(dx + ex + f, -78.5, 2, "#1d2a55", 0); circ(dx + ex + f - 1.4, -80.5, 1.3, "#fff", 0); if (lk.body !== "boy") line(dx + ex - 4, -85, dx + ex - 6, -87.5, dark, 1.5); });
     if (lk.glasses) glasses([-8 + ex, 8 + ex], -79, 8);
     ell(-13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0); ell(13 + ex, -71, 4.5, 3, "rgba(255,120,140,.45)", 0);
     ctx.beginPath(); ctx.arc(ex, -71, 6, .2, Math.PI - .2); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
@@ -299,31 +310,33 @@ const KG = (() => {
     const wave = opt.wave ? Math.sin(performance.now() / 125) * .5 : 0, jump = opt.jump || 0, armUp = opt.wave ? -40 : 0;
     ell(x, y, 26 * sc, 8 * sc, "rgba(0,0,0,.16)", 0);
     ctx.save(); ctx.translate(x, y - jump); ctx.scale(sc, sc);
-    if (key === "adult1") {
+    if (lk.body !== "woman") {
+      // tee and jeans
       const hx = 0, hy = -110, r = 20;
       adultHairBack(lk, hx, hy, r, hc);
       rr(-14, -46, 12, 44, 5, "#3b5f9e", 2.5); rr(2, -46, 12, 44, 5, "#3b5f9e", 2.5); ell(-8, -2, 9, 5, "#333", 2.5); ell(8, -2, 9, 5, "#333", 2.5);
       line(16, -82, 34, -52 + armUp + wave * 20, INK, 9); line(16, -82, 34, -52 + armUp + wave * 20, SKIN, 5);
       line(-16, -82, -30, -50, INK, 9); line(-16, -82, -30, -50, SKIN, 5);
-      rr(-19, -90, 38, 48, 10, "#ffffff");
+      rr(-19, -90, 38, 48, 10, key === "adult1" ? "#ffffff" : "#9fd3ff");
       circ(hx, hy, r, SKIN);
       adultFace(lk, hx, hy, r);
       if (lk.cap) cap(lk, hx, hy, r); else adultHairFront(lk, hx, hy, r, hc);
     } else {
-      // tall and sporty, matching white trainers
+      // sporty top, leggings and matching white trainers
       const hx = 0, hy = -114, r = 18;
       adultHairBack(lk, hx, hy, r, hc);
       rr(-11, -52, 10, 50, 5, "#3a3f63", 2.5); rr(1, -52, 10, 50, 5, "#3a3f63", 2.5);
-      [-6, 6].forEach(dx => { rr(dx - 9, -8, 18, 9, 4, "#ffffff", 2.5); line(dx - 6, -4, dx + 4, -4, "#ff6b6b", 2.5); });
+      const top = key === "adult2" ? "#ff6b6b" : "#2bb3a3";
+      [-6, 6].forEach(dx => { rr(dx - 9, -8, 18, 9, 4, "#ffffff", 2.5); line(dx - 6, -4, dx + 4, -4, top, 2.5); });
       line(15, -88, 31, -60 + armUp + wave * 20, INK, 8); line(15, -88, 31, -60 + armUp + wave * 20, SKIN, 4);
       line(-15, -88, -24, -58, INK, 8); line(-15, -88, -24, -58, SKIN, 4);
-      poly([[-15, -94], [15, -94], [11, -52], [-11, -52]], "#ff6b6b");
+      poly([[-15, -94], [15, -94], [11, -52], [-11, -52]], top);
       line(-12, -60, 12, -60, "#ffffff", 2.5);
       ell(hx, hy, 17, 19, SKIN);
       adultFace(lk, hx, hy + 1, 17);
       ell(-10, hy + 8, 3.5, 2.2, "rgba(255,120,140,.4)", 0); ell(11, hy + 8, 3.5, 2.2, "rgba(255,120,140,.4)", 0);
       if (lk.cap) cap(lk, hx, hy, r); else adultHairFront(lk, hx, hy, r, hc);
-      if (lk.style === "long") { circ(-17, -108, 2, "#ffd23f", 0); circ(17, -108, 2, "#ffd23f", 0); }
+      if (!lk.cap) { circ(-17, -108, 2, "#ffd23f", 0); circ(17, -108, 2, "#ffd23f", 0); }
     }
     ctx.restore();
   }
@@ -335,5 +348,5 @@ const KG = (() => {
     circ, ell, rr, poly, line, cluster, txt, wrap, star4, star5, bubble, nameTag,
     unlockAudio, tone, sfx, speak, get muted() { return muted; }, setMuted, chrome, track,
     OUTFITS, WARDROBE, getOutfit, setOutfit, PLAYERS, mkPlayer, drawKid, drawAdult,
-    SKINS, HAIRS, HAIR_LABELS, EYES, EYE_LABELS, KID_STYLES, ADULT_STYLES, BEARDS, DEFAULT_FAMILY, family, saveFamily, resetFamily, isCustom, name, applyNames };
+    SKINS, HAIRS, HAIR_LABELS, EYES, EYE_LABELS, KID_STYLES, ADULT_STYLES, BEARDS, KID_BODIES, ADULT_BODIES, DEFAULT_FAMILY, family, saveFamily, resetFamily, isCustom, name, applyNames };
 })();

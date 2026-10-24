@@ -7,7 +7,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kids Games: free games I made for my daughters — Gary Stow</title>
-<meta name="description" content="Three free browser games I built with AI for my two daughters, aged three and eight. A co-op seek and find, a times tables peg game and a painting game. Quietly educational, no adverts, nobody loses.">
+<meta name="description" content="Free browser games I built with AI for my two daughters, aged three and eight. A co-op seek and find, a times tables peg game, a painting game and a spelling game. Quietly educational, no adverts, nobody loses.">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Kids Games: free games I made for my daughters">
@@ -21,7 +21,8 @@
 "hasPart":[
 {"@type":"VideoGame","name":"Seek and Find","url":"https://garystow.co.uk/kids-games/seek/","playMode":["CoOp","SinglePlayer"],"gamePlatform":"Web browser","isAccessibleForFree":true},
 {"@type":"VideoGame","name":"Times Table Pegs","url":"https://garystow.co.uk/kids-games/pegs/","playMode":"SinglePlayer","gamePlatform":"Web browser","isAccessibleForFree":true},
-{"@type":"VideoGame","name":"Paint Splash","url":"https://garystow.co.uk/kids-games/paint/","playMode":["SinglePlayer","CoOp"],"gamePlatform":"Web browser","isAccessibleForFree":true}]}
+{"@type":"VideoGame","name":"Paint Splash","url":"https://garystow.co.uk/kids-games/paint/","playMode":["SinglePlayer","CoOp"],"gamePlatform":"Web browser","isAccessibleForFree":true},
+{"@type":"VideoGame","name":"Spell & Build","url":"https://garystow.co.uk/kids-games/spell/","playMode":"SinglePlayer","gamePlatform":"Web browser","isAccessibleForFree":true}]}
 </script>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#7c3aed">
@@ -39,7 +40,7 @@ a{color:inherit}
 header{text-align:center;padding:28px 0 18px}
 h1{font-size:clamp(2.8rem,9vw,5.4rem);line-height:1;color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink)}
 .tag{display:inline-block;margin-top:16px;font-size:clamp(1.05rem,2.6vw,1.35rem);font-weight:600;background:var(--cream);border:3px solid var(--ink);border-radius:18px;padding:8px 18px;box-shadow:0 5px 0 var(--ink)}
-.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:22px}
+.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:22px;margin-top:22px}
 .card{display:flex;flex-direction:column;background:#fff;border:3px solid var(--ink);border-radius:24px;overflow:hidden;box-shadow:0 7px 0 var(--ink);text-decoration:none;transition:transform .1s}
 .card:hover,.card:focus-visible{transform:translateY(-4px);outline:none}
 .card canvas{width:100%;height:auto;display:block;border-bottom:3px solid var(--ink);aspect-ratio:36/22}
@@ -130,6 +131,15 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
         <span class="go">Play</span>
       </div>
     </a>
+    <a class="card" href="/kids-games/spell/" data-game="spell">
+      <canvas id="t-spell" width="720" height="440" aria-hidden="true"></canvas>
+      <div class="body">
+        <div class="who"><span class="b" data-name="bell">Bell</span><span class="l" data-name="lala" data-suffix=" when ready">La La when ready</span></div>
+        <h2>Spell &amp; Build</h2>
+        <p>Read the clue, work out the word and spell it to build a rocket, a castle or a cake. School word lists from Year 1 to Year 6, this week's spellings, or a spelling test.</p>
+        <span class="go">Play</span>
+      </div>
+    </a>
   </section>
 
   <section class="panel">
@@ -143,7 +153,7 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
 
   <section class="panel" id="family" data-clarity-mask="true">
     <h2>Make it yours</h2>
-    <p>Change the names and looks so your children see themselves in every game. Changes save straight away, and only on this device. Nothing you type here is ever sent anywhere.</p>
+    <p>Change the names, boy or girl, and looks so your children see themselves in every game. Changes save straight away, and only on this device. Nothing you type here is ever sent anywhere.</p>
     <div class="fam-grid" id="fam-grid"></div>
     <div class="fam-actions"><button class="btn" id="fam-reset" type="button">Back to Bell and La La</button><span class="note" id="fam-msg"></span></div>
   </section>
@@ -154,7 +164,7 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
     <ol class="steps">
       <li>Open <b>garystow.co.uk/kids-games</b> on that computer or tablet.</li>
       <li>Scroll up to <b>Make it yours</b>. Type your children's names and pick their skin tone, hair and eyes, then do the same for the grown-ups.</li>
-      <li>Press the yellow <b>Add to this computer</b> button below. If you can't see it, follow the steps for your device underneath.</li>
+      <li>Press the yellow <b>Add to this computer</b> button below. If you can't see it (iPads and Safari never show it), follow the steps for your device underneath.</li>
       <li>Open <b>Kids Games</b> from your Start menu, desktop or home screen, just like any other app.</li>
       <li>That's it. After the first time it works without the internet, and you can come back to <b>Make it yours</b> whenever you like.</li>
     </ol>
@@ -162,7 +172,8 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
     <div class="howto">
       <div><span class="h">Windows (Edge)</span>Click the three dots at the top right, then <b>Apps</b>, then <b>Install this site as an app</b>.</div>
       <div><span class="h">Windows or Mac (Chrome)</span>Click the little install icon at the right of the address bar, or the three dots, then <b>Cast, save and share</b>, then <b>Install page as app</b>.</div>
-      <div><span class="h">iPad or iPhone (Safari)</span>Tap the share button (a square with an arrow), then <b>Add to Home Screen</b>.</div>
+      <div><span class="h">iPad or iPhone (Safari)</span>There's no button on Apple devices. Tap the share button (a square with an arrow), then <b>Add to Home Screen</b>.</div>
+      <div><span class="h">Mac (Safari)</span>Click <b>File</b> in the menu bar, then <b>Add to Dock</b>.</div>
       <div><span class="h">Android tablet (Chrome)</span>Tap the three dots, then <b>Add to home screen</b> or <b>Install app</b>.</div>
     </div>
   </section>
@@ -174,6 +185,7 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
       <li><b>Seek &amp; Find:</b> the older player reads clues, works out division and times table facts, and matches colours from descriptions. The younger one hears every picture read aloud, practises colours and counts to three. Neither can finish without the other.</li>
       <li><b>Times Table Pegs:</b> every times table from 1 × 1 to 12 × 12 plus the matching division, with the trickier facts turning up more as the levels go on. She can also pick just the tables she wants to practise. Questions she gets wrong come back a little later, the way a good teacher would do it.</li>
       <li><b>Paint Splash:</b> colour names, shapes and cause and effect, with a gentle voice that asks her to find a colour every so often.</li>
+      <li><b>Spell &amp; Build:</b> the national curriculum spelling lists from Year 1 to Year 6, or this week's words from school. She reads a dictionary-style clue, works out the word and spells it, and every word builds a different picture. Help only appears after a few tries, and there's a spelling test mode that reads 15 or 20 words aloud and marks them at the end, just like school.</li>
     </ul>
     <p>There are no adverts, no accounts and nothing to buy. Nobody loses, and each game has a natural place to stop, which helps at bedtime. They work with a keyboard, a mouse, a tablet or two gamepads.</p>
     <p>Want to change more than names and looks? All of the code is free on <a href="https://github.com/GarySto/kids-games" target="_blank" rel="noopener">GitHub</a>, with simple steps for making your own copy.</p>
@@ -181,7 +193,7 @@ footer{text-align:center;padding:30px 0 40px;font-weight:600}
   <footer><a href="https://garystow.co.uk/work/#play">Read how I built them</a> · <a href="https://garystow.co.uk/">garystow.co.uk</a> · <a href="https://garystow.co.uk/privacy/">Privacy</a></footer>
 </div>
 
-<script src="shared.js"></script>
+<script src="shared.js?v=20261024b"></script>
 <script>KG.applyNames();</script>
 <script>
 "use strict";
@@ -221,6 +233,15 @@ function drawThumbs() {
     [["#f472b6", [[40, 180], [120, 110], [200, 170]]], ["#3b82f6", [[200, 170], [260, 90], [320, 160]]], ["#facc15", [[60, 90], [110, 150]]]].forEach(([c, pts]) => { x.strokeStyle = c; x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.stroke(); });
     star5(290, 190, 18, "#a855f7", 0);
     KG.drawKid(KG.mkPlayer("lala"), 200, 200, .95, { tag: false });
+  });
+  thumb("t-spell", x => {
+    const g = x.createLinearGradient(0, 0, 0, 220); g.addColorStop(0, "#8fd3fb"); g.addColorStop(1, "#fff6dc"); x.fillStyle = g; x.fillRect(0, 0, 360, 220);
+    rr(14, 16, 210, 54, 12, "#fffaf0", 2.5); txt("A place where you can", 26, 38, 14, KG.INK, "left", 600); txt("borrow books.", 26, 58, 14, KG.INK, "left", 600);
+    "library".split("").forEach((ch, i) => { const lx = 24 + i * 28; if (i < 4) txt(ch, lx + 11, 120, 24, KG.INK, "center", 700); line(lx, 128, lx + 22, 128, KG.INK, 3); });
+    x.save(); x.translate(318, 200); x.scale(.42, .42);
+    rr(-120, -22, 240, 22, 8, "#9aa4b2"); rr(-52, -310, 104, 290, 46, "#f1f5f9"); poly([[-50, -296], [50, -296], [0, -392]], "#ef4444"); circ(0, -210, 28, "#7cc6ff");
+    x.restore();
+    KG.drawKid(KG.mkPlayer("bell"), 250, 212, .62, { wave: true, tag: false });
   });
 }
 function drawOutfits() {
@@ -271,6 +292,14 @@ function buildFamily() {
     const nl = document.createElement("label"); nl.textContent = "Name"; const ni = document.createElement("input"); ni.type = "text"; ni.maxLength = 14; ni.value = v.name; ni.autocomplete = "off"; ni.spellcheck = false;
     ni.oninput = () => { v.name = ni.value.replace(/[<>]/g, "").slice(0, 14) || KG.DEFAULT_FAMILY[c.key].name; famChanged(); };
     nl.appendChild(ni); card.appendChild(nl);
+    const bodies = c.kid ? KG.KID_BODIES : KG.ADULT_BODIES;
+    card.appendChild(optRow(c.kid ? "Boy or girl" : "Man or woman", Object.keys(bodies).map(k => [k, bodies[k]]), v.body, x => {
+      v.body = x;
+      // a sensible starting point when switching; everything can still be changed below
+      if (x === "boy" && ["curly", "straight", "braids"].includes(v.style)) v.style = "short";
+      if (x === "woman") v.beard = "none";
+      setTimeout(buildFamily, 0);
+    }));
     card.appendChild(optRow("Skin", KG.SKINS.map((col, i) => [col, "Skin tone " + (i + 1), col]), v.skin, x => v.skin = x, "sw"));
     card.appendChild(optRow("Hair colour", Object.keys(KG.HAIRS).map(k => [k, KG.HAIR_LABELS[k], KG.HAIRS[k]]), v.hair, x => v.hair = x, "sw"));
     const styles = c.kid ? KG.KID_STYLES : KG.ADULT_STYLES;
