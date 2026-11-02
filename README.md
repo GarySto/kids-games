@@ -5,7 +5,8 @@
 I built these for my two daughters, one aged three and one aged eight. Finding games they could enjoy at the same time was surprisingly hard when one is learning her colours and the other is racing through her times tables, so I made some with Claude and slipped some learning into each one. Then I made the characters changeable, because every child deserves to see themselves in the game.
 
 **Play it live:** [Kids Games](https://garystow.co.uk/kids-games/)
-**How and why I built it:** [Kids Games on my Work page](https://garystow.co.uk/work/#play)
+**How and why I built it:** [Why I built free learning games my daughters can play together](https://garystow.co.uk/articles/why-i-built-free-learning-games-for-my-daughters/)  
+**Set it up at home:** [Step-by-step setup guide](https://garystow.co.uk/guides/how-to-set-up-free-learning-games-for-your-kids/)
 
 ![Seek and Find, with a family set up in Make it yours](screenshot.jpg)
 
